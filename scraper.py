@@ -52,9 +52,9 @@ def clean_data(file_path):
         df["facility"] = df["facility"].apply(lambda x: x.title() if isinstance(x, str) else x)
         df["address"] = df["address"].apply(lambda x: x.title() if isinstance(x, str) else x)
 
-        # Replace " Pa " with " PA " in address
+        # Replace " Pa " with ", PA " in address
         df["address"] = df["address"].apply(
-            lambda x: re.sub(r'(\s)Pa(\s)', r'\1PA\2', x) if isinstance(x, str) else x
+            lambda x: re.sub(r'(\s)Pa(\s)', r', PA\2', x) if isinstance(x, str) else x
         )
 
         # Convert inspection_date to datetime
