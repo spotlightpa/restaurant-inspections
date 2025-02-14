@@ -48,7 +48,7 @@ def clean_data(file_path):
         df = df.sort_values(by='inspection_date', ascending=False)
 
         # Format the date
-        df['inspection_date'] = df['inspection_date'].dt.strftime('%B %d, %Y')
+        df['inspection_date'] = df['inspection_date'].dt.strftime('%B %-d, %Y')
 
         # Save the cleaned data
         df.to_excel(file_path, index=False)
