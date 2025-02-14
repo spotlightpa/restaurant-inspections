@@ -57,6 +57,9 @@ def clean_data(file_path):
             lambda x: re.sub(r'(\s)Pa(\s)', r', PA\2', x) if isinstance(x, str) else x
         )
 
+        # Replace hidden line breaks with commas in address
+        df["address"] = df["address"].astype(str).str.replace(r'\s*\n\s*', ', ', regex=True)
+
         # Convert inspection_date to datetime
         df['inspection_date'] = pd.to_datetime(df['inspection_date'], errors='coerce')
 
