@@ -32,7 +32,16 @@ def clean_data(file_path):
         # Trim whitespace in every string cell
         df = df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
 
-        # Convert to datetime
+        # Convert facility and address to proper case
+        df["facility"] = df["facility"].apply(lambda x: x.title() if isinstance(x, str) else x)
+        df["address"] = df["address"].apply(lambda x: x.title() if isinstance(x, str) else x)
+
+        # Replace " Pa " with " PA " in address
+        df["address"] = df["address"].apply(
+            lambda x: re.sub(r'(\s)Pa(\s)', r'\1PA\2', x) if isinstance(x, str) else x
+        )
+
+        # Convert inspection_date to datetime
         df['inspection_date'] = pd.to_datetime(df['inspection_date'], errors='coerce')
 
         # Sort by descending
@@ -90,11 +99,9 @@ def main():
 
         # Hover over the area
         hover_xpath = (
-            "xpath=/html/body/div[1]/ui-view/div/div/div/div/div/div/exploration-container/"
-            "div/docking-container/div/div/div/div/exploration-host/div/div/exploration/"
-            "div/explore-canvas/div/div[2]/div/div[2]/div[2]/visual-container-repeat/"
-            "visual-container[19]/transform/div/div[3]/div/visual-modern/div/div/div[2]/"
-            "div[1]/div[1]/div[8]/div"
+            "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
+            "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
+            "transform/div/div[2]/div/div"
         )
         hover_element = report_frame.locator(hover_xpath)
         try:
@@ -111,7 +118,7 @@ def main():
             "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
             "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
             "transform/div/visual-container-header/div/div/div/visual-container-options-menu/"
-            "visual-header-item-container/div/button"
+            "visual-header-item-container/div"
         )
         button_locator = report_frame.locator(button_xpath)
         try:
@@ -136,8 +143,8 @@ def main():
 
         # Keyboard Navigation to Click "Export"
         try:
-            # Press the Tab key 5 times
-            for _ in range(5):
+            # Press the Tab key
+            for _ in range(4):
                 page.keyboard.press("Tab")
                 page.wait_for_timeout(200)  # Small (ms) delay to ensure stable navigation
 
