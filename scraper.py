@@ -3,6 +3,22 @@ import re
 import shutil
 from playwright.sync_api import sync_playwright, TimeoutError
 
+# AP style dictionary map
+AP_MONTHS = {
+    "January": "Jan.",
+    "February": "Feb.",
+    "March": "March",
+    "April": "April",
+    "May": "May",
+    "June": "June",
+    "July": "July",
+    "August": "Aug.",
+    "September": "Sept.",
+    "October": "Oct.",
+    "November": "Nov.",
+    "December": "Dec."
+}
+
 def clean_data(file_path):
     try:
         # Read the Excel file
@@ -49,6 +65,10 @@ def clean_data(file_path):
 
         # Format the date
         df['inspection_date'] = df['inspection_date'].dt.strftime('%B %-d, %Y')
+
+        # Replace month names with AP style abbreviations
+        for full_month, ap_month in AP_MONTHS.items():
+            df["inspection_date"] = df["inspection_date"].str.replace(full_month, ap_month, regex=False)
 
         # Save the cleaned data
         df.to_excel(file_path, index=False)
