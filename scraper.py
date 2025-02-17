@@ -2,6 +2,38 @@ import pandas as pd
 import re
 import shutil
 from playwright.sync_api import sync_playwright, TimeoutError
+from dotenv import load_dotenv
+import boto3
+import os
+
+# Load environment variables
+load_dotenv()
+
+# AWS credentials
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
+AWS_REGION = os.getenv("AWS_REGION")
+S3_FILE_NAME = os.getenv("S3_FILE_NAME")
+
+def upload_to_s3(file_path, bucket_name, s3_file_name):
+    """Uploads a file to AWS S3 using environment variables for credentials and region."""
+    try:
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=AWS_ACCESS_KEY,
+            aws_secret_access_key=AWS_SECRET_KEY,
+            region_name=AWS_REGION
+        )
+
+        s3_object_key = f"2025/restaurant-inspections/{s3_file_name}"
+
+        s3_client.upload_file(file_path, bucket_name, s3_object_key)
+        print(f"✅ File '{file_path}' uploaded to S3 bucket '{bucket_name}' in region '{AWS_REGION}' as '{s3_object_key}'.")
+    
+    except Exception as e:
+        print(f"❌ S3 upload failed: {e}")
+
 
 # AP style dictionary map
 AP_MONTHS = {
@@ -166,18 +198,15 @@ def clean_data(file_path):
 
 
 def main():
+    """Runs the Playwright scraper and processes the downloaded file."""
+    headless = os.getenv("CI", "false").lower() == "true"  # Runs headless in GitHub Actions
+    print(f"🔍 Running in {'headless' if headless else 'headed'} mode.")
+
     start_url = "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections"
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(headless=False, slow_mo=500)
-        # Set up a browser context with a designated download path
+        browser = p.chromium.launch(headless=headless, slow_mo=500)
         context = browser.new_context(accept_downloads=True)
-
-        # Enable console logging
-        def on_console_message(msg):
-            print(f"Console {msg.type}: {msg.text}")
-        context.on("page", lambda page: page.on("console", on_console_message))
-
         page = context.new_page()
         page.goto(start_url)
 
@@ -272,6 +301,9 @@ def main():
 
             # Clean the data file
             clean_data(destination_path)
+
+            # Upload to S3
+            upload_to_s3(destination_path, S3_BUCKET_NAME, S3_FILE_NAME)
 
         except Exception as e:
             print(f"Download handling failed: {e}")
