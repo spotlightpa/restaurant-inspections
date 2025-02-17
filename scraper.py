@@ -105,6 +105,17 @@ def clean_data(file_path):
         for full_month, ap_month in AP_MONTHS.items():
             df["inspection_date"] = df["inspection_date"].str.replace(full_month, ap_month, regex=False)
 
+        # Extract city using ", PA " as the right boundary and the last comma before it as the left boundary — this works better with ", PA " than simply splitting by commas
+        def extract_city(address):
+            if isinstance(address, str):
+                match = re.search(r",\s*([^,]+)\s*,\s*PA\s", address)
+                if match:
+                    return match.group(1).strip()
+            return ""
+
+        # Insert 'city' column right after 'address'
+        df.insert(df.columns.get_loc("address") + 1, "city", df["address"].apply(extract_city))
+
         # Save the cleaned data
         df.to_excel(file_path, index=False)
 
