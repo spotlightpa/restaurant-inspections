@@ -48,8 +48,40 @@ def clean_data(file_path):
         # Trim whitespace in every string cell
         df = df.apply(lambda col: col.map(lambda x: x.strip() if isinstance(x, str) else x))
 
-        # Convert facility and address to proper case
+        # Define words that should not be capitalized unless at the start
+        small_words = {"a", "an", "and", "as", "at", "but", "by", "for", "if", "in", "nor", 
+                       "of", "on", "or", "so", "the", "to", "up", "yet"}
+
+        # Convert to title case
         df["facility"] = df["facility"].apply(lambda x: x.title() if isinstance(x, str) else x)
+
+        # Correct small words
+        df["facility"] = df["facility"].apply(lambda x: ' '.join(
+            [word if i == 0 or word.lower() not in small_words else word.lower() 
+             for i, word in enumerate(x.split())]) if isinstance(x, str) else x
+        )
+
+        # Normalize apostrophes (replace backticks and other variations with a standard apostrophe)
+        df["facility"] = df["facility"].apply(
+            lambda x: re.sub(r"[`´‘’]", "'", x) if isinstance(x, str) else x
+        )
+
+        # Fix possessive capitalization (e.g., "Joe'S" to "Joe's")
+        df["facility"] = df["facility"].apply(
+            lambda x: re.sub(r"(\b\w+)'S\b", lambda m: f"{m.group(1)}'s", x) if isinstance(x, str) else x
+        )
+
+        # Replace "Llc" with "LLC"
+        df["facility"] = df["facility"].apply(
+            lambda x: re.sub(r'\bLlc\b', 'LLC', x) if isinstance(x, str) else x
+        )
+
+        # Replace "Dba" with "DBA"
+        df["facility"] = df["facility"].apply(
+            lambda x: re.sub(r'\bDba\b', 'DBA', x) if isinstance(x, str) else x
+        )
+
+        # Convert address to title case
         df["address"] = df["address"].apply(lambda x: x.title() if isinstance(x, str) else x)
 
         # Replace " Pa " with ", PA " in address
