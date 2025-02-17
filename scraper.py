@@ -84,6 +84,47 @@ def clean_data(file_path):
         # Convert address to title case
         df["address"] = df["address"].apply(lambda x: x.title() if isinstance(x, str) else x)
 
+        # Replace compass directions with AP style
+        df["address"] = df["address"].apply(
+            lambda x: re.sub(r"\b(N|S|E|W|NE|NW|SE|SW)\b", r"\1.", x) if isinstance(x, str) else x
+        )
+
+        # Define AP Style street abbreviations
+        street_abbreviations = {
+            "Avenue": "Ave.",
+            "Ave": "Ave.",
+            "Street": "St.",
+            "St": "St.",
+            "Road": "Rd.",
+            "Rd": "Rd.",
+            "Boulevard": "Blvd.",
+            "Blvd": "Blvd.",
+            "Drive": "Dr.",
+            "Dr": "Dr.",
+            "Lane": "Ln.",
+            "Ln": "Ln.",
+            "Court": "Ct.",
+            "Ct": "Ct.",
+            "Pike": "Pike",
+            "Highway": "Hwy.",
+            "Hwy": "Hwy.",
+            "Expressway": "Expy.",
+            "Expy": "Expy.",
+            "Turnpike": "Tpk.",
+            "Tpk": "Tpk.",
+            "Circle": "Cir.",
+            "Cir": "Cir."
+        }
+
+        # Replace streets with AP Style
+        def replace_street_type(address):
+            if isinstance(address, str):
+                for full, abbr in street_abbreviations.items():
+                    address = re.sub(rf"\b{full}\b", abbr, address)
+            return address
+
+        df["address"] = df["address"].apply(replace_street_type)
+
         # Replace " Pa " with ", PA " in address
         df["address"] = df["address"].apply(
             lambda x: re.sub(r'(\s)Pa(\s)', r', PA\2', x) if isinstance(x, str) else x
