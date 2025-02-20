@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas playwright boto3 python-dotenv openpyxl
+          pip install pandas playwright boto3 python-dotenv openpyxl requests
           playwright install chromium
 
       - name: Run scraper and upload to S3
@@ -32,4 +32,5 @@ jobs:
           S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_FILE_NAME: ${{ secrets.S3_FILE_NAME }}
+          GEOCODIO_API_KEY: ${{ secrets.GEOCODIO_API_KEY }}
         run: python scraper.py
