@@ -112,6 +112,15 @@ def clean_data(file_path):
         # Insert 'city' column right after 'address'
         df.insert(df.columns.get_loc("address") + 1, "city", df["address"].apply(extract_city))
 
+        # Fix ordinal suffixes to be lowercase when following a number
+        df["address"] = df["address"].apply(lambda x: re.sub(r"(?<=\d)(ST|ND|RD|TH)\b", lambda m: m.group(0).lower(), x, flags=re.IGNORECASE) if isinstance(x, str) else x)
+
+        # Replace all instances of double periods with a single period
+        df["address"] = df["address"].apply(lambda x: re.sub(r"\.{2,}", ".", x) if isinstance(x, str) else x)
+
+        # Replace all instances of double commas with a single comma
+        df["address"] = df["address"].apply(lambda x: re.sub(r",\s*,+", ", ", x) if isinstance(x, str) else x)
+
         # Save the cleaned data
         df.to_excel(file_path, index=False)
 
