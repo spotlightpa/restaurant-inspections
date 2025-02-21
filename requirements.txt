@@ -3,4 +3,4 @@ playwright
 boto3
 python-dotenv
 openpyxl
-
+geocodio

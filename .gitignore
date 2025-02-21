@@ -30,4 +30,6 @@ Thumbs.db
 
 # Ignore downloaded data
 *.xlsx
-addresses.db
+*.csv
+*.json
+*.db
