@@ -3,7 +3,9 @@ import shutil
 import os
 from playwright.sync_api import sync_playwright, TimeoutError
 from helpers.cleaner import clean_data
-from helpers.uploader import upload_to_s3 
+from helpers.uploader import upload_to_s3
+from helpers.geocoder import geocode
+
 
 def main():
     """Runs the Playwright scraper and processes the downloaded file."""
@@ -109,6 +111,9 @@ def main():
 
             # Clean the data file
             clean_data(destination_path)
+
+            # Process addresses and store them
+            geocode(destination_path)
 
             # Upload to S3
             upload_to_s3(destination_path)
