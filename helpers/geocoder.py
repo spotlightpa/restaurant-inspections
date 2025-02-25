@@ -2,7 +2,7 @@ import os
 import io
 import boto3
 import pandas as pd
-
+from geocodio import GeocodioClient
 
 def geocode(local_inspections_file):
 
@@ -90,6 +90,35 @@ def geocode(local_inspections_file):
         missing_file = "missing_addresses.csv"
         missing_addresses_df.to_csv(missing_file, index=False)
         print(f"✅ Missing addresses saved to: {missing_file}")
+
+        # Geocode missing addresses with Geocodio and overwrite file
+        geocodio_api_key = os.getenv("GEOCODIO_API_KEY")
+        if not geocodio_api_key:
+            print("❌ Missing GEOCODIO_API_KEY in environment; cannot geocode.")
+            return
+
+        client = GeocodioClient(geocodio_api_key)
+
+        # Add columns for lat/long to store results
+        missing_addresses_df["Latitude"] = None
+        missing_addresses_df["Longitude"] = None
+
+        for idx, row in missing_addresses_df.iterrows():
+            address_str = row["address"]
+            try:
+                result = client.geocode(address_str)
+                # If we get a valid result, store lat/long
+                if result and result['results']:
+                    location = result['results'][0]['location']
+                    missing_addresses_df.at[idx, "Latitude"] = location["lat"]
+                    missing_addresses_df.at[idx, "Longitude"] = location["lng"]
+            except Exception as e:
+                print(f"❌ Error geocoding '{address_str}': {e}")
+
+        # Overwrite missing_addresses.csv with new columns
+        missing_addresses_df.to_csv(missing_file, index=False)
+        print(f"✅ Missing addresses updated with coordinates in: {missing_file}")
+
     else:
         print("✅ No missing addresses found.")
 
