@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pandas playwright boto3 python-dotenv openpyxl requests geocodio
+          pip install pandas playwright boto3 python-dotenv openpyxl requests python-geocodio
           playwright install chromium
 
       - name: Run scraper and upload to S3
