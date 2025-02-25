@@ -119,6 +119,41 @@ def geocode(local_inspections_file):
         missing_addresses_df.to_csv(missing_file, index=False)
         print(f"✅ Missing addresses updated with coordinates in: {missing_file}")
 
+        # Merge geocoded addresses back into merged_df
+        merged_df = merged_df.merge(
+            missing_addresses_df, on="address", how="left", suffixes=("", "_geocoded")
+        )
+        merged_df["Latitude"] = pd.to_numeric(
+            merged_df["Latitude"].fillna(merged_df["Latitude_geocoded"]), errors="coerce"
+        )
+        merged_df["Longitude"] = pd.to_numeric(
+            merged_df["Longitude"].fillna(merged_df["Longitude_geocoded"]), errors="coerce"
+        )
+        merged_df.drop(columns=["Latitude_geocoded", "Longitude_geocoded"], inplace=True)
+
+        # Rename "address" to "Address" so it matches addresses_df
+        new_addresses_df = missing_addresses_df.rename(columns={"address": "Address"}).copy()
+
+        # Append these to existing addresses DataFrame
+        addresses_df = pd.concat([addresses_df, new_addresses_df], ignore_index=True)
+
+        # Remove duplicates in case some addresses were already present
+        addresses_df.drop_duplicates(subset=["Address"], keep="last", inplace=True)
+
+        # Re-upload updated addresses.csv to S3
+        updated_csv_buf = io.StringIO()
+        addresses_df.to_csv(updated_csv_buf, index=False)
+
+        try:
+            s3_client.put_object(
+                Bucket=S3_BUCKET_NAME,
+                Key=addresses_s3_key,
+                Body=updated_csv_buf.getvalue()
+            )
+            print("✅ Updated addresses.csv re-uploaded to S3.")
+        except Exception as e:
+            print(f"❌ Error uploading updated addresses.csv to S3: {e}")
+
     else:
         print("✅ No missing addresses found.")
 
