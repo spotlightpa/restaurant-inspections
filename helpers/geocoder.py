@@ -2,7 +2,8 @@ import os
 import io
 import boto3
 import pandas as pd
-from geocodio import GeocodioClient
+from geocodio import Client as GeocodioClient
+
 
 def geocode(local_inspections_file):
 
