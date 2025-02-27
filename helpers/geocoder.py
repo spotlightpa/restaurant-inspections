@@ -107,12 +107,12 @@ def geocode(local_inspections_file):
         for idx, row in missing_addresses_df.iterrows():
             address_str = row["address"]
             try:
-                result = client.geocode(address_str)
-                # If we get a valid result, store lat/long
-                if result and result['results']:
-                    location = result['results'][0]['location']
-                    missing_addresses_df.at[idx, "Latitude"] = location["lat"]
-                    missing_addresses_df.at[idx, "Longitude"] = location["lng"]
+                response = client.geocode(address_str)
+                result = response.json()  # Convert response to JSON
+                if "results" in result and result["results"]:
+                    location = result["results"][0]["location"]
+                    missing_addresses_df.at[idx, "Latitude"] = location.get("lat")
+                    missing_addresses_df.at[idx, "Longitude"] = location.get("lng")
             except Exception as e:
                 print(f"❌ Error geocoding '{address_str}': {e}")
 
