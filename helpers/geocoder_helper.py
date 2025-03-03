@@ -2,8 +2,7 @@ import os
 import io
 import boto3
 import pandas as pd
-from geocodio.client import Client as GeocodioClient
-
+from geocodio import GeocodioClient
 
 def geocode(local_inspections_file):
 
@@ -108,13 +107,16 @@ def geocode(local_inspections_file):
             address_str = row["address"]
             try:
                 response = client.geocode(address_str)
-                result = response.json()  # Convert response to JSON
+                result = response  # No need for .json()
+
                 if "results" in result and result["results"]:
                     location = result["results"][0]["location"]
                     missing_addresses_df.at[idx, "Latitude"] = location.get("lat")
                     missing_addresses_df.at[idx, "Longitude"] = location.get("lng")
+
             except Exception as e:
                 print(f"❌ Error geocoding '{address_str}': {e}")
+
 
         # Overwrite missing_addresses.csv with new columns
         missing_addresses_df.to_csv(missing_file, index=False)

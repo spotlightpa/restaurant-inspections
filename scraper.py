@@ -4,7 +4,7 @@ import os
 from playwright.sync_api import sync_playwright, TimeoutError
 from helpers.cleaner import clean_data
 from helpers.uploader import upload_to_s3
-from helpers.geocoder import geocode
+from helpers.geocoder_helper import geocode 
 
 
 def main():
