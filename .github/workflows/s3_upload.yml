@@ -3,7 +3,7 @@ name: Upload Inspections Data to S3
 on:
   push:
     branches:
-      - master 
+      - master
   schedule:
     - cron: '0 17 * * *'  # Runs daily at 12 p.m. EST
 
@@ -20,13 +20,14 @@ jobs:
         with:
           python-version: '3.9'
 
-      - name: Install dependencies
+      - name: Install dependencies from requirements.txt
         run: |
-          pip install pandas playwright boto3 python-dotenv openpyxl requests pygeocodio geocodio
-          playwright install chromium
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
 
-      - name: Verify installed packages
-        run: pip list | grep -E "geocodio|pygeocodio"
+      - name: Verify Installed Packages
+        run: pip list
 
       - name: Run scraper and upload to S3
         env:
@@ -36,4 +37,6 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_FILE_NAME: ${{ secrets.S3_FILE_NAME }}
           GEOCODIO_API_KEY: ${{ secrets.GEOCODIO_API_KEY }}
-        run: python scraper.py
+        run: |
+          python -m pip list
+          python scraper.py
