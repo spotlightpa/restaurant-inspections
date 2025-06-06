@@ -1,6 +1,7 @@
 import re
 import shutil
 import os
+import pandas as pd
 from playwright.sync_api import sync_playwright, TimeoutError
 from helpers.cleaner import clean_data
 from helpers.uploader import upload_to_s3
@@ -114,6 +115,12 @@ def main():
 
             # Process addresses and store them
             geocode(destination_path)
+
+            # Drop the 'isp' column before uploading to S3 to reduce file size
+            df_final = pd.read_excel(destination_path)
+            if "isp" in df_final.columns:
+                df_final.drop(columns=["isp"], inplace=True)
+                df_final.to_excel(destination_path, index=False)
 
             # Upload to S3
             upload_to_s3(destination_path)
