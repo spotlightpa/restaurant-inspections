@@ -49,5 +49,19 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'schedule' }}
     steps:
-      - name: Keepalive log
-        run: 'echo "Keepalive: Scheduled run executed at $(date)"'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Git config
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Create keepalive commit
+        run: |
+          echo "Keepalive: $(date)" > .keepalive
+          git add .keepalive
+          git commit -m "chore: keepalive commit [skip ci]" || echo "No changes to commit"
+          git push origin master
