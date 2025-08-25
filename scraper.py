@@ -3,9 +3,11 @@ import shutil
 import os
 import pandas as pd
 from playwright.sync_api import sync_playwright, TimeoutError
+
 from helpers.cleaner import clean_data
 from helpers.uploader import upload_to_s3
-from helpers.geocoder_helper import geocode 
+from helpers.geocoder_helper import geocode
+from helpers.categories_helper import upsert_categories, join_categories_into_inspections
 
 
 def main():
@@ -116,6 +118,12 @@ def main():
             # Process addresses and store them
             geocode(destination_path)
 
+            # Build/merge unique facility categories store
+            upsert_categories(destination_path)
+
+            # Join categories back into export (exact match on facility/address/city)
+            join_categories_into_inspections(destination_path)
+
             # Drop the 'isp' column before uploading to S3 to reduce file size
             df_final = pd.read_excel(destination_path)
             if "isp" in df_final.columns:
@@ -131,6 +139,7 @@ def main():
         # Wait to observe the result (ms)
         page.wait_for_timeout(5000)
         browser.close()
+
 
 if __name__ == "__main__":
     main()
