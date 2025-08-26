@@ -8,6 +8,7 @@ from helpers.cleaner import clean_data
 from helpers.uploader import upload_to_s3
 from helpers.geocoder_helper import geocode
 from helpers.categories_helper import upsert_categories, join_categories_into_inspections
+from helpers.ai_labeler import label_categories_via_ai
 
 
 def main():
@@ -120,6 +121,9 @@ def main():
 
             # Build/merge unique facility categories store
             upsert_categories(destination_path)
+
+            # Label unlabeled rows with AI (exactly on facility/address/city)
+            label_categories_via_ai(destination_path, limit=20, model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
 
             # Join categories back into export (exact match on facility/address/city)
             join_categories_into_inspections(destination_path)

@@ -41,7 +41,9 @@ def upsert_categories(local_inspections_file: str) -> str:
         core[col] = core[col].fillna("").astype(str).str.strip()
 
     uniques = core.drop_duplicates().reset_index(drop=True)
-    uniques["category"] = ""  # placeholder for now
+    for extra in ["category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]:
+        if extra not in uniques.columns:
+            uniques[extra] = ""
 
     # AWS / S3 setup
     AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
@@ -63,13 +65,11 @@ def upsert_categories(local_inspections_file: str) -> str:
         region_name=AWS_REGION,
     )
 
-    # Load existing categories.csv (if any)
-    existing = pd.DataFrame(columns=["facility", "address", "city", "category"])
+    existing = pd.DataFrame(columns=["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"])
     try:
         s3_obj = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=S3_KEY)
         existing = pd.read_csv(io.BytesIO(s3_obj["Body"].read()), dtype=str)
-        # Normalize columns/whitespace
-        for col in ["facility", "address", "city", "category"]:
+        for col in ["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]:
             if col not in existing.columns:
                 existing[col] = ""
             existing[col] = existing[col].fillna("").astype(str).str.strip()
@@ -86,16 +86,19 @@ def upsert_categories(local_inspections_file: str) -> str:
 
     if existing.empty:
         combined = uniques.copy()
-        combined["category"] = combined["category"].fillna("")
     else:
         new_rows = uniques.loc[~uniques["_key"].isin(existing["_key"]), :]
-        combined = pd.concat([existing, new_rows], ignore_index=True)
-        combined["category"] = combined["category"].fillna("")
+        missing_cols = [c for c in existing.columns if c not in new_rows.columns]
+        for c in missing_cols:
+            new_rows[c] = ""
+        combined = pd.concat([existing, new_rows[existing.columns]], ignore_index=True)
 
-    # Finalize
     if "_key" in combined.columns:
         combined.drop(columns=["_key"], inplace=True)
-    combined = combined[["facility", "address", "city", "category"]]
+
+    desired = ["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]
+    cols = [c for c in desired if c in combined.columns] + [c for c in combined.columns if c not in desired]
+    combined = combined[cols]
     combined = combined.drop_duplicates().sort_values(["facility", "address", "city"]).reset_index(drop=True)
 
     # Write local copy
@@ -185,32 +188,33 @@ def join_categories_into_inspections(local_inspections_file: str) -> bool:
             categories[col] = ""
         categories[col] = categories[col].fillna("").astype(str).str.strip()
 
-    categories = categories[["facility", "address", "city", "category"]].copy()
-    categories.sort_values(["facility", "address", "city"], inplace=True)
-    categories.drop_duplicates(subset=["facility", "address", "city"], keep="first", inplace=True)
+    categories = categories[["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]].drop_duplicates()
 
-    # Build exact-lookup dict {(facility,address,city): category}
-    key_tuples = list(zip(categories["facility"], categories["address"], categories["city"]))
-    cat_map = dict(zip(key_tuples, categories["category"]))
-
-    # Lookup for each inspection row
-    df_keys = list(zip(df["facility"], df["address"], df["city"]))
-    looked_up = [cat_map.get(k, "") for k in df_keys]
+    keys = list(zip(df["facility"], df["address"], df["city"]))
+    def _map_field(field: str):
+        m = dict(zip(
+            zip(categories["facility"], categories["address"], categories["city"]),
+            categories[field]
+        ))
+        return [m.get(k, "") for k in keys]
 
     # Insert/replace 'category' right after 'city'
     if "category" in df.columns:
-        df["category"] = looked_up
-        # move next to city if needed
-        cols = list(df.columns)
-        cols.remove("category")
-        city_idx = cols.index("city")
-        cols = cols[:city_idx+1] + ["category"] + cols[city_idx+1:]
-        df = df[cols]
+        df["category"] = _map_field("category")
     else:
         city_idx = df.columns.get_loc("city")
-        df.insert(city_idx + 1, "category", looked_up)
+        df.insert(city_idx + 1, "category", _map_field("category"))
 
-    # Save back to the same Excel file
+    after_cols = ["cuisine", "ai_category", "ai_confidence"]
+    insert_pos = df.columns.get_loc("category") + 1
+    for ac in after_cols:
+        values = _map_field(ac)
+        if ac in df.columns:
+            df[ac] = values
+        else:
+            df.insert(insert_pos, ac, values)
+            insert_pos += 1
+
     try:
         df.to_excel(local_inspections_file, index=False)
         print("✅ Wrote inspections.xlsx with exact-match 'category' column.")
