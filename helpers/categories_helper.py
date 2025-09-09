@@ -3,7 +3,6 @@ import io
 import boto3
 import pandas as pd
 
-
 S3_KEY = "2025/restaurant-inspections/categories.csv"
 
 def _composite_key(df: pd.DataFrame) -> pd.Series:
@@ -13,16 +12,14 @@ def _composite_key(df: pd.DataFrame) -> pd.Series:
     c = df["city"].fillna("").astype(str).str.strip()
     return f + "||" + a + "||" + c
 
-
 def upsert_categories(local_inspections_file: str) -> str:
     """
-    Create/merge a unique categories file with separate columns:
-      facility,address,city,category
+    Create/merge a unique categories file with columns:
+      facility,address,city,ai_category
 
-    New rows get blank 'category'. Existing 'category' values are preserved.
+    New rows start with blank ai_category. Existing values are preserved.
     Returns the local path written.
     """
-    # Load the cleaned inspections.xlsx
     try:
         df = pd.read_excel(local_inspections_file, dtype=str)
     except Exception as e:
@@ -35,17 +32,14 @@ def upsert_categories(local_inspections_file: str) -> str:
         print(f"❌ {local_inspections_file} missing columns: {missing}")
         return ""
 
-    # Normalize whitespace (post-cleaning) and take uniques
     core = df[["facility", "address", "city"]].copy()
     for col in core.columns:
         core[col] = core[col].fillna("").astype(str).str.strip()
 
     uniques = core.drop_duplicates().reset_index(drop=True)
-    for extra in ["category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]:
-        if extra not in uniques.columns:
-            uniques[extra] = ""
+    if "ai_category" not in uniques.columns:
+        uniques["ai_category"] = ""
 
-    # AWS / S3 setup
     AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
@@ -54,7 +48,7 @@ def upsert_categories(local_inspections_file: str) -> str:
     if not (AWS_ACCESS_KEY and AWS_SECRET_KEY and S3_BUCKET_NAME and AWS_REGION):
         print("❌ Missing AWS env vars; cannot read/write categories.csv in S3.")
         local_only_path = "categories.csv"
-        uniques.to_csv(local_only_path, index=False)
+        uniques[["facility","address","city","ai_category"]].to_csv(local_only_path, index=False)
         print(f"📝 Wrote local (not S3-backed) {local_only_path} with {len(uniques)} rows.")
         return local_only_path
 
@@ -65,11 +59,11 @@ def upsert_categories(local_inspections_file: str) -> str:
         region_name=AWS_REGION,
     )
 
-    existing = pd.DataFrame(columns=["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"])
+    existing = pd.DataFrame(columns=["facility", "address", "city", "ai_category"])
     try:
         s3_obj = s3_client.get_object(Bucket=S3_BUCKET_NAME, Key=S3_KEY)
         existing = pd.read_csv(io.BytesIO(s3_obj["Body"].read()), dtype=str)
-        for col in ["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]:
+        for col in ["facility","address","city","ai_category"]:
             if col not in existing.columns:
                 existing[col] = ""
             existing[col] = existing[col].fillna("").astype(str).str.strip()
@@ -79,7 +73,6 @@ def upsert_categories(local_inspections_file: str) -> str:
     except Exception as e:
         print(f"❌ Error reading categories.csv from S3: {e}")
 
-    # Merge: only add new facility/address/city combos; keep existing categories
     if not existing.empty:
         existing["_key"] = _composite_key(existing)
     uniques["_key"] = _composite_key(uniques)
@@ -88,25 +81,22 @@ def upsert_categories(local_inspections_file: str) -> str:
         combined = uniques.copy()
     else:
         new_rows = uniques.loc[~uniques["_key"].isin(existing["_key"]), :]
-        missing_cols = [c for c in existing.columns if c not in new_rows.columns]
+        missing_cols = [c for c in ["facility","address","city","ai_category","_key"] if c not in new_rows.columns]
         for c in missing_cols:
-            new_rows[c] = ""
+            new_rows[c] = "" if c != "_key" else new_rows["_key"]
         combined = pd.concat([existing, new_rows[existing.columns]], ignore_index=True)
 
     if "_key" in combined.columns:
         combined.drop(columns=["_key"], inplace=True)
 
-    desired = ["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]
-    cols = [c for c in desired if c in combined.columns] + [c for c in combined.columns if c not in desired]
-    combined = combined[cols]
-    combined = combined.drop_duplicates().sort_values(["facility", "address", "city"]).reset_index(drop=True)
+    combined = combined[["facility","address","city","ai_category"]].drop_duplicates().sort_values(
+        ["facility","address","city"]
+    ).reset_index(drop=True)
 
-    # Write local copy
     local_path = "categories.csv"
     combined.to_csv(local_path, index=False)
     print(f"📝 Wrote local categories.csv with {len(combined)} unique rows.")
 
-    # Upload back to S3
     try:
         s3_client.put_object(
             Bucket=S3_BUCKET_NAME,
@@ -119,9 +109,7 @@ def upsert_categories(local_inspections_file: str) -> str:
 
     return local_path
 
-
 def join_categories_into_inspections(local_inspections_file: str) -> bool:
-    # Load inspections
     try:
         df = pd.read_excel(local_inspections_file, dtype=str)
     except Exception as e:
@@ -133,12 +121,8 @@ def join_categories_into_inspections(local_inspections_file: str) -> bool:
         if col not in df.columns:
             print(f"❌ Missing column '{col}' in {local_inspections_file}")
             return False
-
-    # Normalize join fields
-    for col in needed:
         df[col] = df[col].fillna("").astype(str).str.strip()
 
-    # Try to load categories.csv (S3 first, then local fallback)
     AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
     AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
     S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
@@ -169,56 +153,46 @@ def join_categories_into_inspections(local_inspections_file: str) -> bool:
             print(f"❌ Error reading local categories.csv: {e}")
             categories = None
 
-    # If no categories available yet, ensure a blank column exists and save
     if categories is None:
-        if "category" not in df.columns:
-            city_idx = df.columns.get_loc("city")
-            df.insert(city_idx + 1, "category", "")
+        if "ai_category" not in df.columns:
+            insert_at = df.columns.get_loc("city") + 1
+            df.insert(insert_at, "ai_category", "")
         try:
+            for legacy in ["category","cuisine","ai_confidence","ai_rationale"]:
+                if legacy in df.columns:
+                    df.drop(columns=[legacy], inplace=True)
             df.to_excel(local_inspections_file, index=False)
-            print("📝 Wrote inspections with empty 'category' column (no categories.csv available).")
+            print("📝 Wrote inspections with empty 'ai_category' column (no categories.csv available).")
             return True
         except Exception as e:
-            print(f"❌ Error saving inspections with empty category: {e}")
+            print(f"❌ Error saving inspections with empty ai_category: {e}")
             return False
 
-    # Normalize and de-dupe categories
-    for col in ["facility", "address", "city", "category"]:
+    for col in ["facility","address","city","ai_category"]:
         if col not in categories.columns:
             categories[col] = ""
         categories[col] = categories[col].fillna("").astype(str).str.strip()
 
-    categories = categories[["facility", "address", "city", "category", "cuisine", "ai_category", "ai_confidence", "ai_rationale"]].drop_duplicates()
+    categories = categories[["facility","address","city","ai_category"]].drop_duplicates()
 
     keys = list(zip(df["facility"], df["address"], df["city"]))
-    def _map_field(field: str):
-        m = dict(zip(
-            zip(categories["facility"], categories["address"], categories["city"]),
-            categories[field]
-        ))
-        return [m.get(k, "") for k in keys]
+    m = dict(zip(zip(categories["facility"], categories["address"], categories["city"]), categories["ai_category"]))
+    ai_vals = [m.get(k, "") for k in keys]
 
-    # Insert/replace 'category' right after 'city'
-    if "category" in df.columns:
-        df["category"] = _map_field("category")
+    if "ai_category" in df.columns:
+        df["ai_category"] = ai_vals
     else:
-        city_idx = df.columns.get_loc("city")
-        df.insert(city_idx + 1, "category", _map_field("category"))
+        insert_at = df.columns.get_loc("city") + 1
+        df.insert(insert_at, "ai_category", ai_vals)
 
-    after_cols = ["cuisine", "ai_category", "ai_confidence"]
-    insert_pos = df.columns.get_loc("category") + 1
-    for ac in after_cols:
-        values = _map_field(ac)
-        if ac in df.columns:
-            df[ac] = values
-        else:
-            df.insert(insert_pos, ac, values)
-            insert_pos += 1
+    for legacy in ["category","cuisine","ai_confidence","ai_rationale"]:
+        if legacy in df.columns:
+            df.drop(columns=[legacy], inplace=True)
 
     try:
         df.to_excel(local_inspections_file, index=False)
-        print("✅ Wrote inspections.xlsx with exact-match 'category' column.")
+        print("✅ Wrote inspections.xlsx with only 'ai_category' injected.")
         return True
     except Exception as e:
-        print(f"❌ Error saving inspections with category: {e}")
+        print(f"❌ Error saving inspections with ai_category: {e}")
         return False

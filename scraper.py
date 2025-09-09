@@ -123,7 +123,10 @@ def main():
             upsert_categories(destination_path)
 
             # Label unlabeled rows with AI (exactly on facility/address/city)
-            label_categories_via_ai(destination_path, limit=20, model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"))
+            label_categories_via_ai(
+                destination_path,
+                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+            )
 
             # Join categories back into export (exact match on facility/address/city)
             join_categories_into_inspections(destination_path)
