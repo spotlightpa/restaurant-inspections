@@ -2,7 +2,7 @@ import os
 import io
 import json
 import string
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 import boto3
 import pandas as pd
@@ -157,7 +157,7 @@ def _save_categories_df(df: pd.DataFrame):
         except Exception as e:
             print(f"❌ Error uploading labeled categories.csv to S3: {e}")
 
-def label_categories_via_ai(local_inspections_file: str, limit: int | None = None, model: str = "gpt-4o-mini") -> int:
+def label_categories_via_ai(local_inspections_file: str, limit: Optional[int] = None, model: str = "gpt-4o-mini") -> int:
     try:
         ins = pd.read_excel(local_inspections_file, dtype=str)
         for col in ["facility","address","city"]:
