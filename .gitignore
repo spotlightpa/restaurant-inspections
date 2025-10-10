@@ -33,3 +33,4 @@ Thumbs.db
 *.csv
 *.json
 *.db
+inspections.csv.gz
