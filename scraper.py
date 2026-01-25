@@ -120,16 +120,16 @@ def main():
             geocode(destination_path)
 
             # Build/merge unique facility categories store
-            upsert_categories(destination_path)
+            # upsert_categories(destination_path)
 
             # Label unlabeled rows with AI (exactly on facility/address/city)
-            label_categories_via_ai(
-                destination_path,
-                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-            )
+            # label_categories_via_ai(
+            #     destination_path,
+            #     model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+            # )
 
             # Join categories back into export (exact match on facility/address/city)
-            join_categories_into_inspections(destination_path)
+            # join_categories_into_inspections(destination_path)
 
             # Drop the 'isp' column before uploading to S3 to reduce file size
             df_final = pd.read_excel(destination_path)
