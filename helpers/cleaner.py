@@ -121,6 +121,33 @@ def clean_data(file_path):
         # Replace all instances of double commas with a single comma
         df["address"] = df["address"].apply(lambda x: re.sub(r",\s*,+", ", ", x) if isinstance(x, str) else x)
 
+        # Single inspections with multiple violations
+        def combine_violations(group):
+            # For fields that should be the same, take the first value
+            result = group.iloc[0].copy()
+            
+            # Combine violation codes
+            violation_codes = group['violation_code'].dropna().astype(str)
+            if len(violation_codes) > 0:
+                result['violation_code'] = ' | '.join(violation_codes)
+            
+            # Combine violation descriptions
+            violation_descs = group['violation_description'].dropna().astype(str)
+            if len(violation_descs) > 0:
+                result['violation_description'] = ' | '.join(violation_descs)
+            
+            # Combine comments
+            comments = group['comment'].dropna().astype(str)
+            if len(comments) > 0:
+                result['comment'] = ' | '.join(comments)
+            
+            return result
+        
+        # Group by facility, address, and inspection_date
+        df = df.groupby(['facility', 'address', 'inspection_date'], as_index=False, dropna=False).apply(combine_violations)
+        df = df.reset_index(drop=True)
+        
+
         # Save the cleaned data
         df.to_excel(file_path, index=False)
 
