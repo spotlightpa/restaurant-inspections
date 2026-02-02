@@ -135,7 +135,10 @@ def main():
             df_final = pd.read_excel(destination_path)
             if "isp" in df_final.columns:
                 df_final.drop(columns=["isp"], inplace=True)
-                df_final.to_excel(destination_path, index=False)
+            
+            # Add unique ID column for frontend grouping
+            df_final['id'] = df_final['facility'].fillna('') + ' — ' + df_final['address'].fillna('')
+            df_final.to_excel(destination_path, index=False)
 
             # Upload to S3
             upload_to_s3(destination_path)
