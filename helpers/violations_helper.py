@@ -35,8 +35,30 @@ def clean_violation_code(code: str) -> str:
     
     return cleaned
 
-def join_violation_details(local_inspections_file: str) -> bool:
+def translate_priority_to_risk(priority_level: str) -> str:
+    if not priority_level or priority_level == "NA":
+        return "NA"
+    
+    # Mapping dictionary
+    risk_map = {
+        "P": "high risk",
+        "Pf": "moderate risk",
+        "C": "low risk"
+    }
+    
+    # Split by comma in case there are multiple
+    parts = [p.strip() for p in priority_level.split(",")]
+    risk_parts = []
+    
+    for part in parts:
+        if part in risk_map:
+            risk_parts.append(risk_map[part])
+        else:
+            risk_parts.append("NA")
+    
+    return ", ".join(risk_parts)
 
+def join_violation_details(local_inspections_file: str) -> bool:
     try:
         # Load inspections
         df = pd.read_excel(local_inspections_file, dtype=str)
@@ -104,6 +126,7 @@ def join_violation_details(local_inspections_file: str) -> bool:
         # Process each row
         spotlight_pa_list = []
         priority_level_list = []
+        risk_level_list = []
         requirement_description_list = []
         
         for idx, row in df.iterrows():
@@ -113,6 +136,7 @@ def join_violation_details(local_inspections_file: str) -> bool:
             if pd.isna(violation_codes) or violation_codes.strip() == "":
                 spotlight_pa_list.append("")
                 priority_level_list.append("")
+                risk_level_list.append("")
                 requirement_description_list.append("")
                 continue
                 
@@ -127,6 +151,7 @@ def join_violation_details(local_inspections_file: str) -> bool:
             # Clean each code and look up details
             spotlight_parts = []
             priority_parts = []
+            risk_parts = []
             description_parts = []
             
             for i, code in enumerate(codes):
@@ -137,33 +162,37 @@ def join_violation_details(local_inspections_file: str) -> bool:
                     details = lookup[cleaned_code]
                     spotlight_parts.append(details["spotlight_pa"])
                     priority_parts.append(details["priority_level"])
+                    # Translate priority to risk
+                    risk_parts.append(translate_priority_to_risk(details["priority_level"]))
                     description_parts.append(details["requirement_description"])
                 else:
                     # Track unique missing codes
                     if cleaned_code and cleaned_code not in missing_codes:
                         missing_codes.add(cleaned_code)
                     
-                    # Use "NA" for missing spotlight_pa and priority_level
-                    # Fall back to original description for requirement_description
+                    # Use "NA" for missing values
                     spotlight_parts.append("NA")
                     priority_parts.append("NA")
+                    risk_parts.append("NA")
                     description_parts.append(original_desc)
             
             # Join with pipes
             spotlight_pa_list.append(" | ".join(spotlight_parts))
             priority_level_list.append(" | ".join(priority_parts))
+            risk_level_list.append(" | ".join(risk_parts))
             requirement_description_list.append(" | ".join(description_parts))
         
         # Report unique missing codes
         if missing_codes:
-            print(f"\n {len(missing_codes)} unique violation codes not found in food-codes.csv:")
-            print(f"   (Using 'NA' for spotlight_pa/priority_level, original description for requirement_description)")
+            print(f"\n{len(missing_codes)} unique violation codes not found in food-codes.csv:")
+            print(f"   (Using 'NA' for spotlight_pa/priority_level/risk_level, original description for requirement_description)")
             for code in sorted(missing_codes):
                 print(f"   - {code}")
         
         # Add new columns to dataframe
         df["spotlight_pa"] = spotlight_pa_list
         df["priority_level"] = priority_level_list
+        df["risk_level"] = risk_level_list
         df["requirement_description"] = requirement_description_list
         
         # Save back to Excel
