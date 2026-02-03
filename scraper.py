@@ -131,6 +131,10 @@ def main():
             # Join categories back into export (exact match on facility/address/city)
             # join_categories_into_inspections(destination_path)
 
+            # Join violation code details from S3
+            from helpers.violations_helper import join_violation_details
+            join_violation_details(destination_path)
+
             # Drop the 'isp' column before uploading to S3 to reduce file size
             df_final = pd.read_excel(destination_path)
             if "isp" in df_final.columns:
