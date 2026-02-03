@@ -4,6 +4,22 @@ from helpers.dictionaries.ap_months import AP_MONTHS
 from helpers.dictionaries.ap_addresses import AP_STREET_ABBREVIATIONS
 from helpers.dictionaries.title_case import TITLE_CASE
 
+def fix_ordinal_suffixes(text):
+    if not isinstance(text, str):
+        return text
+    
+    pattern = r'(\d+)(ST|ND|RD|TH)\b'
+    
+    def replace_and_log(match):
+        original = match.group(0)
+        fixed = match.group(1) + match.group(2).lower()
+        if original != fixed:
+            print(f"   Fixed ordinal: '{match.string}' (changed {original} -> {fixed})")
+        return fixed
+    
+    result = re.sub(pattern, replace_and_log, text, flags=re.IGNORECASE)
+    return result
+
 def clean_data(file_path):
     try:
         # Read the Excel file
@@ -35,6 +51,10 @@ def clean_data(file_path):
 
         # Convert to title case
         df["facility"] = df["facility"].apply(lambda x: x.title() if isinstance(x, str) else x)
+        
+        # Fix ordinal suffixes after numbers
+        print("Fixing ordinal suffixes in facility names...")
+        df["facility"] = df["facility"].apply(fix_ordinal_suffixes)
 
         # Correct small words in facility names
         df["facility"] = df["facility"].apply(lambda x: ' '.join(
@@ -44,7 +64,7 @@ def clean_data(file_path):
 
         # Normalize apostrophes (replace backticks and other variations with a standard apostrophe)
         df["facility"] = df["facility"].apply(
-            lambda x: re.sub(r"[`´‘’]", "'", x) if isinstance(x, str) else x
+            lambda x: re.sub(r"[`´'']", "'", x) if isinstance(x, str) else x
         )
 
         # Fix possessive capitalization (e.g., "Joe'S" to "Joe's")
@@ -101,7 +121,7 @@ def clean_data(file_path):
 
         df["address"] = df["address"].apply(replace_street_type)
 
-        # Extract city using ", PA " as the right boundary and the last comma before it as the left boundary — this works better with ", PA " than simply splitting by commas
+        # Extract city using ", PA " as boundary
         def extract_city(address):
             if isinstance(address, str):
                 match = re.search(r",\s*([^,]+)\s*,\s*PA\s", address)
