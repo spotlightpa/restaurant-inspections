@@ -134,8 +134,12 @@ def main():
             # Join violation code details from S3
             from helpers.violations_helper import join_violation_details
             join_violation_details(destination_path)
+            
+            # Add AI summaries to comments
+            from helpers.ai_summarizer import add_ai_summaries
+            add_ai_summaries(destination_path)
 
-            # Drop the 'isp' column before uploading to S3 to reduce file size
+            # Drop the 'isp' column before uploading to S3 to reduce file siz
             df_final = pd.read_excel(destination_path)
             if "isp" in df_final.columns:
                 df_final.drop(columns=["isp"], inplace=True)
