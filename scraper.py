@@ -109,6 +109,7 @@ def main():
             # Save the downloaded file
             downloaded_file_path = download.path()
             destination_path = "inspections.xlsx"
+            facility_destination_path = "facilities.xlsx"
             shutil.copy(downloaded_file_path, destination_path)
 
             print(f"File downloaded and saved as: {destination_path}")
@@ -136,8 +137,8 @@ def main():
             join_violation_details(destination_path)
             
             # Add AI summaries to comments
-            from helpers.ai_summarizer import add_ai_summaries
-            add_ai_summaries(destination_path)
+            # from helpers.ai_summarizer import add_ai_summaries
+            # add_ai_summaries(destination_path)
 
             # Drop the 'isp' column before uploading to S3 to reduce file siz
             df_final = pd.read_excel(destination_path)
@@ -153,6 +154,63 @@ def main():
 
         except Exception as e:
             print(f"Download handling failed: {e}")
+
+        # Scrape Facility Details tab
+        tab_locator_facility = report_frame.locator("text=Facility Details")
+        try:
+            tab_locator_facility.wait_for(state="visible", timeout=30000)
+            tab_locator_facility.click()
+            print("Clicked 'Facility Details' tab.")
+        except TimeoutError:
+            print("Facility Details tab not found or not visible.")
+            browser.close()
+            return
+
+        report_frame.wait_for_timeout(5000)
+
+        # Target the "Recent Inspection Details" visual by its aria-label
+        facility_hover_xpath = "xpath=//div[@aria-label='Recent Inspection Details ']"
+        facility_hover_element = report_frame.locator(facility_hover_xpath)
+        try:
+            facility_hover_element.wait_for(state="visible", timeout=30000)
+            facility_hover_element.hover()
+            print("Hovered over 'Recent Inspection Details' visual.")
+        except TimeoutError:
+            print("Could not find 'Recent Inspection Details' visual.")
+            browser.close()
+            return
+
+        facility_button_xpath = (
+            "xpath=//div[@aria-label='Recent Inspection Details ']"
+            "/ancestor::transform"
+            "//visual-container-options-menu//visual-header-item-container/div"
+        )
+        facility_button_locator = report_frame.locator(facility_button_xpath)
+        try:
+            facility_button_locator.wait_for(state="visible", timeout=30000)
+            facility_button_locator.click()
+            print("Clicked '...' menu on 'Recent Inspection Details'.")
+        except TimeoutError:
+            print("Could not find '...' menu on 'Recent Inspection Details'.")
+            browser.close()
+            return
+
+        page.wait_for_timeout(2000)
+        page.keyboard.press("Enter")
+
+        for _ in range(4):
+            page.keyboard.press("Tab")
+            page.wait_for_timeout(200)
+
+        with page.expect_download(timeout=60000) as facility_download_info:
+            page.keyboard.press("Enter")
+            print("Activated 'Export data' for Facility Details.")
+
+        facility_download = facility_download_info.value
+        shutil.copy(facility_download.path(), facility_destination_path)
+        print(f"Facility Details saved as: {facility_destination_path}")
+
+        upload_to_s3(facility_destination_path)
 
         # Wait to observe the result (ms)
         page.wait_for_timeout(5000)

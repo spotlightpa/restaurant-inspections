@@ -34,3 +34,4 @@ Thumbs.db
 *.json
 *.db
 inspections.csv.gz
+facilities.csv.gz
