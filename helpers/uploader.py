@@ -13,7 +13,7 @@ AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 AWS_REGION = os.getenv("AWS_REGION")
 
-def upload_to_s3(file_path):
+def upload_to_s3(file_path, s3_key_override=None):
     """
     Uploads a file to AWS S3, converting XLSX to gzipped CSV.
     Ensures proper UTF-8 encoding.
@@ -67,7 +67,7 @@ def upload_to_s3(file_path):
 
         # Upload gzipped CSV to S3
         csv_gz_file_name = os.path.basename(csv_gz_file_path)
-        s3_object_key = f"2025/restaurant-inspections/{csv_gz_file_name}"
+        s3_object_key = s3_key_override if s3_key_override else f"2025/restaurant-inspections/{csv_gz_file_name}"
 
         s3_client.upload_file(
             csv_gz_file_path, 

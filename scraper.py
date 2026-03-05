@@ -215,6 +215,62 @@ def main():
 
         upload_to_s3(facility_destination_path)
 
+        # Scrape county roundups
+        counties = ["PA, Berks", "PA, Centre"]
+        dropdown_xpath = (
+            'xpath=//*[@id="pvExplorationHost"]/div/div/exploration/div/explore-canvas/'
+            'div/div[contains(@class,"canvasFlexBox")]/div/div[contains(@class,"displayArea")]/'
+            'div[contains(@class,"visualContainerHost")]/visual-container-repeat/'
+            'visual-container[9]/transform/div/div[contains(@class,"visualContent")]/div'
+        )
+
+        for county in counties:
+            print(f"Selecting county: {county}")
+            try:
+                dropdown = report_frame.locator(dropdown_xpath)
+                dropdown.wait_for(state="visible", timeout=30000)
+                dropdown.click()
+                report_frame.wait_for_timeout(1500)
+
+                option = report_frame.locator(f"text={county}")
+                option.wait_for(state="visible", timeout=10000)
+                option.click()
+                print(f"Selected {county}")
+                report_frame.wait_for_timeout(3000)
+            except Exception as e:
+                print(f"⚠️ Could not select {county}: {e}")
+                continue
+
+            # Download filtered facility table
+            county_slug = county.replace("PA, ", "").lower()
+            county_file = f"{county_slug}_facilities.xlsx"
+
+            try:
+                facility_hover_element.hover()
+                facility_button_locator.click()
+                page.wait_for_timeout(2000)
+                page.keyboard.press("Enter")
+
+                for _ in range(4):
+                    page.keyboard.press("Tab")
+                    page.wait_for_timeout(200)
+
+                with page.expect_download(timeout=60000) as county_download_info:
+                    page.keyboard.press("Enter")
+                    print(f"Downloading {county} data...")
+
+                county_dl = county_download_info.value
+                shutil.copy(county_dl.path(), county_file)
+                print(f"Saved {county_file}")
+
+                # Generate roundup doc
+                pass
+                # from helpers.roundup_generator import generate_roundup
+                # generate_roundup(county_file, county_slug)
+
+            except Exception as e:
+                print(f"⚠️ Failed to download/generate roundup for {county}: {e}")
+
         # Wait to observe the result (ms)
         page.wait_for_timeout(5000)
         browser.close()
