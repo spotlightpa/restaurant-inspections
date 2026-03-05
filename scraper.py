@@ -210,6 +210,9 @@ def main():
         shutil.copy(facility_download.path(), facility_destination_path)
         print(f"Facility Details saved as: {facility_destination_path}")
 
+        from helpers.facilities_cleaner import clean_facilities
+        clean_facilities(facility_destination_path)
+
         upload_to_s3(facility_destination_path)
 
         # Wait to observe the result (ms)
