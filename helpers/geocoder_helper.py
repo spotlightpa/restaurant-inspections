@@ -87,7 +87,8 @@ def geocode(local_inspections_file):
     # Drop all columns except 'address', remove duplicates and save
     if not missing_addresses_df.empty:
         missing_addresses_df = missing_addresses_df[["address"]].drop_duplicates()
-        missing_file = "missing_addresses.csv"
+        os.makedirs("data", exist_ok=True)
+        missing_file = "data/missing_addresses.csv"
         missing_addresses_df.to_csv(missing_file, index=False)
         print(f"✅ Missing addresses saved to: {missing_file}")
 
@@ -161,7 +162,7 @@ def geocode(local_inspections_file):
         print("✅ No missing addresses found.")
 
     # Save the merged dataframe
-    merged_file = "inspections.xlsx"
+    merged_file = local_inspections_file
     try:
         merged_df.to_excel(merged_file, index=False)
         print(f"✅ Merged data with lat/long saved as: {merged_file}")

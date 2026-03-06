@@ -47,7 +47,8 @@ def upsert_categories(local_inspections_file: str) -> str:
 
     if not (AWS_ACCESS_KEY and AWS_SECRET_KEY and S3_BUCKET_NAME and AWS_REGION):
         print("❌ Missing AWS env vars; cannot read/write categories.csv in S3.")
-        local_only_path = "categories.csv"
+        os.makedirs("data", exist_ok=True)
+        local_only_path = "data/categories.csv"
         uniques[["facility","address","city","ai_category"]].to_csv(local_only_path, index=False)
         print(f"📝 Wrote local (not S3-backed) {local_only_path} with {len(uniques)} rows.")
         return local_only_path
@@ -93,7 +94,8 @@ def upsert_categories(local_inspections_file: str) -> str:
         ["facility","address","city"]
     ).reset_index(drop=True)
 
-    local_path = "categories.csv"
+    os.makedirs("data", exist_ok=True)
+    local_path = "data/categories.csv"
     combined.to_csv(local_path, index=False)
     print(f"📝 Wrote local categories.csv with {len(combined)} unique rows.")
 
@@ -145,9 +147,9 @@ def join_categories_into_inspections(local_inspections_file: str) -> bool:
         except Exception as e:
             print(f"❌ Error reading categories.csv from S3: {e}")
 
-    if categories is None and os.path.exists("categories.csv"):
+    if categories is None and os.path.exists("data/categories.csv"):
         try:
-            categories = pd.read_csv("categories.csv", dtype=str)
+            categories = pd.read_csv("data/categories.csv", dtype=str)
             print("ℹ️ Loaded local categories.csv for exact-match join.")
         except Exception as e:
             print(f"❌ Error reading local categories.csv: {e}")

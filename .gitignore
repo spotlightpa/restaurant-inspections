@@ -35,3 +35,4 @@ Thumbs.db
 *.db
 inspections.csv.gz
 facilities.csv.gz
+/data

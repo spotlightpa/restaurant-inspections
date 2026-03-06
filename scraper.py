@@ -108,8 +108,9 @@ def main():
 
             # Save the downloaded file
             downloaded_file_path = download.path()
-            destination_path = "inspections.xlsx"
-            facility_destination_path = "facilities.xlsx"
+            os.makedirs("data", exist_ok=True)
+            destination_path = "data/inspections.xlsx"
+            facility_destination_path = "data/facilities.xlsx"
             shutil.copy(downloaded_file_path, destination_path)
 
             print(f"File downloaded and saved as: {destination_path}")
@@ -260,11 +261,19 @@ def main():
                     print(f"Downloading {county} data...")
 
                 county_dl = county_download_info.value
+
+                os.makedirs(os.path.join("data", "roundup"), exist_ok=True)
+                county_file = os.path.join("data", "roundup", f"{county_slug}_facilities.xlsx")
+
                 shutil.copy(county_dl.path(), county_file)
-                print(f"Saved {county_file}")
+                print(f"✅ Saved {county_file}")
+
+                from helpers.facilities_cleaner import clean_facilities
+                clean_facilities(county_file)
+
+                upload_to_s3(county_file)
 
                 # Generate roundup doc
-                pass
                 # from helpers.roundup_generator import generate_roundup
                 # generate_roundup(county_file, county_slug)
 
