@@ -262,8 +262,9 @@ def main():
 
                 county_dl = county_download_info.value
 
-                os.makedirs(os.path.join("data", "roundup"), exist_ok=True)
-                county_file = os.path.join("data", "roundup", f"{county_slug}_facilities.xlsx")
+                county_folder = os.path.join("data", "roundup", county_slug)
+                os.makedirs(county_folder, exist_ok=True)
+                county_file = os.path.join(county_folder, f"{county_slug}_facilities.xlsx")
 
                 shutil.copy(county_dl.path(), county_file)
                 print(f"✅ Saved {county_file}")

@@ -11,11 +11,7 @@ def fix_ordinal_suffixes(text):
     pattern = r'(\d+)(ST|ND|RD|TH)\b'
     
     def replace_and_log(match):
-        original = match.group(0)
-        fixed = match.group(1) + match.group(2).lower()
-        if original != fixed:
-            print(f"   Fixed ordinal: '{match.string}' (changed {original} -> {fixed})")
-        return fixed
+        return match.group(1) + match.group(2).lower()
     
     result = re.sub(pattern, replace_and_log, text, flags=re.IGNORECASE)
     return result
