@@ -72,7 +72,7 @@ def generate_roundup(file_path, county_slug):
             doc.add_paragraph(f"{facility}, {address}, {date}", style="List Bullet")
 
         # Save
-        folder = os.path.join("roundup", county_slug)
+        folder = os.path.join("data", "roundup", county_slug)
         os.makedirs(folder, exist_ok=True)
         output_path = os.path.join(folder, f"{date_slug}.docx")
         doc.save(output_path)

@@ -14,6 +14,36 @@ S3_BUCKET_NAME = os.getenv("S3_BUCKET_NAME")
 AWS_REGION = os.getenv("AWS_REGION")
 
 def upload_to_s3(file_path, s3_key_override=None):
+    # For non-Excel files, upload directly without CSV conversion
+    if not file_path.endswith(".xlsx"):
+        try:
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=AWS_ACCESS_KEY,
+                aws_secret_access_key=AWS_SECRET_KEY,
+                region_name=AWS_REGION
+            )
+            s3_object_key = s3_key_override if s3_key_override else f"2025/restaurant-inspections/{os.path.basename(file_path)}"
+            content_types = {
+                ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                ".csv": "text/csv",
+                ".pdf": "application/pdf",
+            }
+            ext = os.path.splitext(file_path)[1]
+            content_type = content_types.get(ext, "application/octet-stream")
+            s3_client.upload_file(
+                file_path,
+                S3_BUCKET_NAME,
+                s3_object_key,
+                ExtraArgs={"ACL": "public-read", "ContentType": content_type}
+            )
+            url = f"https://{S3_BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{s3_object_key}"
+            print(f"Uploaded {os.path.basename(file_path)} to S3.")
+            print(f"URL: {url}")
+            return url
+        except Exception as e:
+            print(f"Unexpected error during S3 upload: {e}")
+            raise
     """
     Uploads a file to AWS S3, converting XLSX to gzipped CSV.
     Ensures proper UTF-8 encoding.

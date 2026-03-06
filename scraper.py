@@ -274,8 +274,8 @@ def main():
                 upload_to_s3(county_file)
 
                 # Generate roundup doc
-                # from helpers.roundup_generator import generate_roundup
-                # generate_roundup(county_file, county_slug)
+                from helpers.roundup_generator import generate_roundup
+                generate_roundup(county_file, county_slug)
 
             except Exception as e:
                 print(f"⚠️ Failed to download/generate roundup for {county}: {e}")
