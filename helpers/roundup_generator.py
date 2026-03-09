@@ -136,8 +136,11 @@ def generate_roundup(file_path, county_slug):
                 address = str(row.get("address", ""))
                 date = str(row.get("last_inspection_date", ""))
 
+                facility_slug = _re.sub(r'[^a-z0-9]+', '-', facility.lower()).strip('-')
+                tracker_url = f"http://localhost:8888/restaurant-inspections/#{facility_slug}"
+
                 p = doc.add_paragraph()
-                p.add_run(facility).bold = True
+                add_hyperlink(p, facility, tracker_url)
                 addr_run = p.add_run(f"\n{address}")
                 addr_run.italic = True
                 date_run = p.add_run(f"\n{date}")
