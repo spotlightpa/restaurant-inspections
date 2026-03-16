@@ -5,9 +5,7 @@ import boto3
 import pandas as pd
 from anthropic import Anthropic
 
-TEST_MODE = True
-TEST_LIMIT = 25
-PRODUCTION_LIMIT = 1000
+BATCH_SIZE = 25
 
 SYSTEM_PROMPT = """
 Context: You are a food safety expert reviewing restaurant inspection reports from Pennsylvania.
@@ -169,14 +167,21 @@ def add_ai_summaries(local_inspections_file: str) -> bool:
             (~df["comment_hash"].isin(summaries_dict.keys()))
         ]
         
+        date_col = next((c for c in df.columns if c in ("date", "inspection_date", "insp_date")), None)
+        if date_col:
+            needs_summary = needs_summary.copy()
+            needs_summary["_sort_date"] = pd.to_datetime(needs_summary[date_col], errors="coerce")
+            needs_summary = needs_summary.sort_values("_sort_date", ascending=False).drop(columns=["_sort_date"])
+            needs_summary = needs_summary.sort_values(date_col, ascending=False)
+
         unique_comments = needs_summary[["comment_hash", "comment"]].drop_duplicates()
-        
-        limit = TEST_LIMIT if TEST_MODE else PRODUCTION_LIMIT
-        if len(unique_comments) > limit:
-            print(f"Found {len(unique_comments)} new comments, limiting to {limit}")
-            unique_comments = unique_comments.head(limit)
+
+        total_new = len(unique_comments)
+        if total_new > BATCH_SIZE:
+            print(f"Found {total_new} new comments — processing {BATCH_SIZE} this run, {total_new - BATCH_SIZE} remaining for future runs")
+            unique_comments = unique_comments.head(BATCH_SIZE)
         else:
-            print(f"Found {len(unique_comments)} new comments to summarize")
+            print(f"Found {total_new} new comments to summarize")
         
         if unique_comments.empty:
             print("No new comments to summarize")
@@ -190,11 +195,11 @@ def add_ai_summaries(local_inspections_file: str) -> bool:
         total_output_tokens = 0
         new_summaries = []
         
-        for idx, row in unique_comments.iterrows():
+        for idx, (_, row) in enumerate(unique_comments.iterrows(), start=1):
             comment = row["comment"]
             comment_hash = row["comment_hash"]
-            
-            print(f"Summarizing {idx + 1}/{len(unique_comments)}: {comment[:50]}...")
+
+            print(f"Summarizing {idx}/{len(unique_comments)}: {comment[:50]}...")
             
             result = summarize_comment(comment, api_key)
             
