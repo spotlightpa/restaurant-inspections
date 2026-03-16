@@ -148,6 +148,22 @@ def main():
             
             # Add unique ID column for frontend grouping
             df_final['id'] = df_final['facility'].fillna('') + ' — ' + df_final['address'].fillna('')
+            
+            # Sort most recent to oldest
+            date_col = next((c for c in df_final.columns if c in ("date", "inspection_date", "insp_date")), None)
+            if date_col:
+                ap_map = {
+                    r"Jan\.": "January", r"Feb\.": "February", r"Aug\.": "August",
+                    r"Sept\.": "September", r"Oct\.": "October", r"Nov\.": "November",
+                    r"Dec\.": "December"
+                }
+                normalized = df_final[date_col].astype(str)
+                for pattern, full in ap_map.items():
+                    normalized = normalized.str.replace(pattern, full, regex=True)
+                df_final = df_final.copy()
+                df_final["_sort_date"] = pd.to_datetime(normalized, errors="coerce")
+                df_final = df_final.sort_values("_sort_date", ascending=False).drop(columns=["_sort_date"])
+
             df_final.to_excel(destination_path, index=False)
 
             # Upload to S3
