@@ -186,8 +186,12 @@ def add_ai_summaries(local_inspections_file: str) -> bool:
             batch_rows = needs_summary.head(BATCH_SIZE)
             print(f"No facility id column found, processing first {BATCH_SIZE} comments")
 
+        total_needing_summary = needs_summary[["_comment_hash", "_single_comment"]].drop_duplicates()
+        total_needing_summary = total_needing_summary[total_needing_summary["_single_comment"].str.strip() != ""]
+        print(f"Total unique comments needing summaries across all facilities: {len(total_needing_summary)}")
+
         unique_comments = batch_rows[["_comment_hash", "_single_comment"]].drop_duplicates()
-        print(f"  ({len(unique_comments)} unique comments across those facilities)")
+        print(f"  Summarizing {len(unique_comments)} this run ({len(total_needing_summary) - len(unique_comments)} queued for future runs)")
         total_input_tokens = 0
         total_output_tokens = 0
         new_summaries = []
@@ -197,7 +201,7 @@ def add_ai_summaries(local_inspections_file: str) -> bool:
             if not comment.strip():
                 continue
 
-            print(f"Summarizing {idx}/{len(unique_comments)}: {comment[:50]}...")
+            print(f"  [{idx}/{len(unique_comments)}] (of {len(total_needing_summary)} total): {comment[:50]}...")
             result = summarize_comment(comment, api_key)
             new_summaries.append({
                 "comment_hash": comment_hash,
