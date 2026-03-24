@@ -5,7 +5,7 @@ import boto3
 import pandas as pd
 from anthropic import Anthropic
 
-BATCH_SIZE = 100
+BATCH_SIZE = 2000
 
 AP_MAP = {
     r"Jan\.": "January", r"Feb\.": "February", r"Aug\.": "August",
@@ -124,10 +124,12 @@ def summarize_comment(comment: str, api_key: str) -> dict:
         }
     except Exception as e:
         print(f"Error summarizing comment: {e}")
+        is_billing_error = "credit balance is too low" in str(e).lower() or "invalid_request_error" in str(e).lower()
         return {
             "summary": "",
             "input_tokens": 0,
-            "output_tokens": 0
+            "output_tokens": 0,
+            "fatal": is_billing_error
         }
 
 def add_ai_summaries(local_inspections_file: str) -> bool:
@@ -203,6 +205,11 @@ def add_ai_summaries(local_inspections_file: str) -> bool:
 
             print(f"  [{idx}/{len(unique_comments)}] (of {len(total_needing_summary)} total): {comment[:50]}...")
             result = summarize_comment(comment, api_key)
+
+            if result.get("fatal"):
+                print(f"\nStopping: billing/auth error. {idx - 1} comments summarized before failure.")
+                break
+
             new_summaries.append({
                 "comment_hash": comment_hash,
                 "comment_text": comment,
