@@ -181,6 +181,10 @@ def main():
             roundup_path = "data/roundup.xlsx"
             roundup.to_excel(roundup_path, index=False)
             print(f"\n✅ Merged roundup saved: {roundup_path} ({len(roundup)} rows)")
+
+            from helpers.roundup_violations_generator import generate_roundup_from_violations
+            for county in counties:
+                generate_roundup_from_violations(roundup_path, county)
         else:
             print("⚠️ No files to merge.")
 
