@@ -1,6 +1,7 @@
 import re
 import shutil
 import os
+import boto3
 import pandas as pd
 from playwright.sync_api import sync_playwright, TimeoutError
 
@@ -23,6 +24,33 @@ def main():
         context = browser.new_context(accept_downloads=True)
         page = context.new_page()
         page.goto(start_url)
+
+        # Sync data folder from S3 before anything else
+        print("Syncing data folder from S3...")
+        try:
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+                aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                region_name=os.getenv("AWS_REGION")
+            )
+            bucket = os.getenv("S3_BUCKET_NAME")
+            prefix = "2025/restaurant-inspections/"
+            paginator = s3_client.get_paginator("list_objects_v2")
+            os.makedirs("data", exist_ok=True)
+            for s3_page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+                for obj in s3_page.get("Contents", []):
+                    key = obj["Key"]
+                    filename = key.replace(prefix, "")
+                    if not filename or filename.endswith("/"):
+                        continue
+                    local_path = os.path.join("data", filename)
+                    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+                    s3_client.download_file(bucket, key, local_path)
+                    print(f"  Downloaded: {local_path}")
+            print("S3 sync complete.")
+        except Exception as e:
+            print(f"⚠️ S3 sync failed, continuing with local data: {e}")
 
         # Wait (ms) for the page to load completely
         page.wait_for_timeout(20000)
@@ -290,16 +318,16 @@ def main():
 
                 upload_to_s3(county_file)
 
-                # Generate roundup doc
-                from helpers.roundup_generator import generate_roundup
-                generate_roundup(county_file, county_slug)
-
             except Exception as e:
                 print(f"⚠️ Failed to download/generate roundup for {county}: {e}")
 
         # Wait to observe the result (ms)
         page.wait_for_timeout(5000)
         browser.close()
+
+    # Run roundup violations scraper
+    from helpers.roundup_violations import main as run_roundup_violations
+    run_roundup_violations()
 
 
 if __name__ == "__main__":
