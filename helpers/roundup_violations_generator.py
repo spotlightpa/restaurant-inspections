@@ -189,10 +189,10 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 if "ai_summary" in group.columns:
                     risk_order = {"High Risk": 0, "Moderate Risk": 1, "Low Risk": 2}
 
-                    # Explode pipe-delimited summaries and risk levels into individual rows
+                    # Explode pipe-delimited comments and risk levels into individual rows
                     pairs = []
                     for _, vrow in group.iterrows():
-                        raw_summary = str(vrow.get("ai_summary", ""))
+                        raw_summary = str(vrow.get("comment", ""))
                         raw_risk = str(vrow.get("risk_level", ""))
                         if not raw_summary or raw_summary.lower() in ("nan", ""):
                             continue
