@@ -153,8 +153,36 @@ def main():
                     clean_data(county_path)
                     print(f"Cleaned: {county_path}")
 
+                    # Stamp county and compliance columns
+                    df = pd.read_excel(county_path)
+                    df["county"] = county_search
+                    df["compliance"] = compliance
+                    df.to_excel(county_path, index=False)
+                    print(f"Stamped county={county_search}, compliance={compliance}")
+
                 except Exception as e:
                     print(f"Download failed for {county_search}: {e}")
+
+        # Merge all downloaded files into one roundup file
+        all_files = [
+            f"data/{county}_{compliance}.xlsx"
+            for county in counties
+            for compliance in ["out", "in"]
+        ]
+        dfs = []
+        for f in all_files:
+            if os.path.exists(f):
+                dfs.append(pd.read_excel(f))
+            else:
+                print(f"⚠️ Missing file, skipping: {f}")
+
+        if dfs:
+            roundup = pd.concat(dfs, ignore_index=True)
+            roundup_path = "data/roundup.xlsx"
+            roundup.to_excel(roundup_path, index=False)
+            print(f"\n✅ Merged roundup saved: {roundup_path} ({len(roundup)} rows)")
+        else:
+            print("⚠️ No files to merge.")
 
         page.wait_for_timeout(5000)
         browser.close()
