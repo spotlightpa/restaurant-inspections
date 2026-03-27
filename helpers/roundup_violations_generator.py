@@ -185,15 +185,33 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                         summary_line = ", ".join(parts) + " violation" + ("s" if total != 1 else "")
                         doc.add_paragraph(summary_line)
 
-                # Add AI summaries as bullets
+                # Add AI summaries as bullets, ordered high to low risk, with bold risk label
                 if "ai_summary" in group.columns:
+                    risk_order = {"High Risk": 0, "Moderate Risk": 1, "Low Risk": 2}
+
+                    # Explode pipe-delimited summaries and risk levels into individual rows
+                    pairs = []
                     for _, vrow in group.iterrows():
-                        raw = str(vrow.get("ai_summary", ""))
-                        if raw and raw.lower() not in ("nan", ""):
-                            for summary in raw.split(" | "):
-                                summary = summary.strip()
-                                if summary:
-                                    doc.add_paragraph(summary, style="List Bullet")
+                        raw_summary = str(vrow.get("ai_summary", ""))
+                        raw_risk = str(vrow.get("risk_level", ""))
+                        if not raw_summary or raw_summary.lower() in ("nan", ""):
+                            continue
+                        summaries = [s.strip() for s in raw_summary.split(" | ") if s.strip()]
+                        risks = [r.strip() for r in raw_risk.split(" | ") if r.strip()] if raw_risk and raw_risk.lower() not in ("nan", "") else []
+                        for i, summary in enumerate(summaries):
+                            risk = risks[i] if i < len(risks) else ""
+                            sort_key = risk_order.get(risk.title(), 99)
+                            pairs.append((sort_key, risk, summary))
+
+                    # Sort all individual violations high to low
+                    pairs.sort(key=lambda x: x[0])
+
+                    for _, risk_label, summary in pairs:
+                        p = doc.add_paragraph(style="List Bullet")
+                        if risk_label:
+                            clean_label = re.sub(r'\s*risk\s*', '', risk_label, flags=re.IGNORECASE).strip().title()
+                            p.add_run(f"{clean_label}: ").bold = True
+                        p.add_run(summary)
 
         # In-compliance section
         heading_in = doc.add_paragraph()
