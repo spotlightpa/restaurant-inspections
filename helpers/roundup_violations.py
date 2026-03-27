@@ -3,6 +3,7 @@ import shutil
 import os
 import pandas as pd
 from playwright.sync_api import sync_playwright, TimeoutError
+from helpers.cleaner import clean_data
 
 
 def main():
@@ -148,6 +149,9 @@ def main():
                     dl = dl_info.value
                     shutil.copy(dl.path(), county_path)
                     print(f"Saved: {county_path}")
+
+                    clean_data(county_path)
+                    print(f"Cleaned: {county_path}")
 
                 except Exception as e:
                     print(f"Download failed for {county_search}: {e}")
