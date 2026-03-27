@@ -72,6 +72,23 @@ def generate_roundup_from_violations(roundup_path, county_slug):
     try:
         df = pd.read_excel(roundup_path)
 
+        # Join ai_summary + risk_level from main inspections file
+        inspections_path = "data/inspections.xlsx"
+        try:
+            insp = pd.read_excel(inspections_path, dtype=str)
+            join_cols = [c for c in ["facility", "inspection_date", "ai_summary", "risk_level"] if c in insp.columns]
+            if "facility" in join_cols and "inspection_date" in join_cols:
+                insp = insp[join_cols].drop_duplicates(subset=["facility", "inspection_date"])
+                df = df.merge(insp, on=["facility", "inspection_date"], how="left")
+                print("Joined ai_summary and risk_level from inspections.xlsx")
+                matched = df["ai_summary"].notna().sum()
+                print(f"  ai_summary matched on {matched} of {len(df)} rows")
+                if matched == 0:
+                    print(f"  Sample roundup dates: {df['inspection_date'].head(3).tolist()}")
+                    print(f"  Sample inspections dates: {insp['inspection_date'].head(3).tolist()}")
+        except Exception as e:
+            print(f"⚠️ Could not join from inspections.xlsx: {e}")
+
         # Filter to this county
         df = df[df["county"].str.strip().str.lower() == county_slug.lower()].copy()
         if df.empty:
@@ -144,7 +161,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 p.add_run(f"\n{address}").italic = True
                 p.add_run(f"\n{date}").italic = True
 
-                # Count violations by risk level
+                # Count violations by risk level and show summary line
                 if "risk_level" in group.columns:
                     all_levels = (
                         group["risk_level"]
@@ -157,11 +174,26 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                     )
                     all_levels = all_levels[~all_levels.isin(["Na", "Nan", ""])]
                     counts = all_levels.value_counts()
-                    for level, count in counts.items():
-                        num = AP_NUMS.get(count, str(count))
-                        clean_level = re.sub(r'\s*risk\s*', '', level, flags=re.IGNORECASE).strip().lower()
-                        label = f"{clean_level} risk violation" + ("s" if count != 1 else "")
-                        doc.add_paragraph(f"{num} {label}", style="List Bullet")
+                    parts = []
+                    for level in ["High Risk", "Moderate Risk", "Low Risk"]:
+                        count = counts.get(level, 0)
+                        if count:
+                            clean_level = re.sub(r'\s*risk\s*', '', level, flags=re.IGNORECASE).strip().lower()
+                            parts.append(f"{count} {clean_level} risk")
+                    if parts:
+                        total = sum(counts.values)
+                        summary_line = ", ".join(parts) + " violation" + ("s" if total != 1 else "")
+                        doc.add_paragraph(summary_line)
+
+                # Add AI summaries as bullets
+                if "ai_summary" in group.columns:
+                    for _, vrow in group.iterrows():
+                        raw = str(vrow.get("ai_summary", ""))
+                        if raw and raw.lower() not in ("nan", ""):
+                            for summary in raw.split(" | "):
+                                summary = summary.strip()
+                                if summary:
+                                    doc.add_paragraph(summary, style="List Bullet")
 
         # In-compliance section
         heading_in = doc.add_paragraph()
