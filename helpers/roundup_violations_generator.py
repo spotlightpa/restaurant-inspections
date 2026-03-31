@@ -150,12 +150,12 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
         # Out-of-compliance section
         heading_out = doc.add_paragraph()
-        run_out = heading_out.add_run("Out-of-compliance inspections this week:")
+        run_out = heading_out.add_run("Failed inspections this week:")
         run_out.bold = True
         run_out.font.size = Pt(16)
 
         if out.empty:
-            doc.add_paragraph("No out-of-compliance inspections this week.")
+            doc.add_paragraph("No failed inspections this week.")
         else:
             # Group by facility+date so violations are aggregated per inspection
             for (facility, inspection_date), group in out.groupby(["facility", "inspection_date"], sort=False):
