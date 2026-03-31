@@ -132,12 +132,21 @@ def generate_roundup_from_violations(roundup_path, county_slug):
         doc.add_paragraph(datetime.today().strftime("%B %-d, %Y"))
 
         # Intro
-        intro = doc.add_paragraph(
-            f"The Pennsylvania Department of Agriculture inspected the following food establishments "
-            f"in {county_name} County this week. Find the full database at Spotlight PA's "
+        intro = doc.add_paragraph("The ")
+        add_hyperlink(intro, "Pennsylvania Department of Agriculture", "https://www.pa.gov/agencies/pda/food/food-safety/retail-food-inspection-reports")
+        intro.add_run(" produces retail food inspection reports for 61 of Pennsylvania's 67 counties "
+            f"using the FDA Model Food Code. Inspections are conducted regularly throughout the state, and results are posted as "
+            f"inspections are conducted. As noted by the Department of Agriculture, inspections are a \u201csnapshot\u201d of a particular day. "
+            f"Many violations are relatively minor and are fixed at the time of inspection."
         )
-        add_hyperlink(intro, "Restaurant Safety Tracker", "https://www.spotlightpa.org/restaurant-inspections")
-        intro.add_run(".")
+
+        intro2 = doc.add_paragraph(
+            f"The state inspected the following food establishments in {county_name} County this week. "
+            f"To find more restaurant safety information, view full inspection reports, and sign up for real-time text or email alerts "
+            f"for specific restaurants or locations visit Spotlight PA\u2019s "
+        )
+        add_hyperlink(intro2, "Restaurant Safety Tracker", "https://www.spotlightpa.org/restaurant-inspections")
+        intro2.add_run(".")
 
         # Out-of-compliance section
         heading_out = doc.add_paragraph()
