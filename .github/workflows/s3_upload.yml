@@ -41,6 +41,7 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           S3_FILE_NAME: ${{ secrets.S3_FILE_NAME }}
           GEOCODIO_API_KEY: ${{ secrets.GEOCODIO_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           python -m pip list
           python scraper.py
