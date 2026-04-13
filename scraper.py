@@ -194,6 +194,10 @@ def main():
 
             df_final.to_excel(destination_path, index=False)
 
+            # Detect new inspections and trigger notifications
+            from helpers.notifier import detect_and_notify
+            detect_and_notify(df_final, s3_client, bucket, prefix)
+
             # Upload to S3
             upload_to_s3(destination_path)
 
