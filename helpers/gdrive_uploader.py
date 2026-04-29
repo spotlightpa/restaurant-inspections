@@ -49,12 +49,16 @@ def upload_to_gdrive(file_path, folder_id=None):
             raise
     else:
         print(f"[GDrive] No existing file found, creating new...")
-        metadata = {"name": filename, "parents": [folder_id]}
+        metadata = {"name": filename}
         try:
             result = service.files().create(
                 body=metadata, media_body=media, fields="id"
             ).execute()
             file_id = result["id"]
+            service.permissions().create(
+                fileId=file_id,
+                body={"type": "anyone", "role": "reader"}
+            ).execute()
             print(f"[GDrive] Created: {filename} (id={file_id})")
             print(f"[GDrive] URL: https://drive.google.com/file/d/{file_id}/view")
         except Exception as e:
