@@ -258,6 +258,10 @@ def generate_roundup_from_violations(roundup_path, county_slug):
         s3_key = f"2025/restaurant-inspections/roundup/{county_slug}/{date_slug}.docx"
         upload_to_s3(output_path, s3_key_override=s3_key)
 
+        # Upload to Google Drive
+        from helpers.gdrive_uploader import upload_to_gdrive
+        upload_to_gdrive(output_path)
+
     except Exception as e:
         print(f"Roundup generation failed for {county_slug}: {e}")
         import traceback

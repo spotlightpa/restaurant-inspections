@@ -321,8 +321,6 @@ def main():
                 clean_facilities(county_file)
 
                 upload_to_s3(county_file)
-                from helpers.gdrive_uploader import upload_to_gdrive
-                upload_to_gdrive(county_file)
 
             except Exception as e:
                 print(f"⚠️ Failed to download/generate roundup for {county}: {e}")
