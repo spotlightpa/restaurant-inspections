@@ -32,8 +32,16 @@ def upload_to_gdrive(file_path, folder_id=GDRIVE_FOLDER_ID):
 
     if existing:
         file_id = existing[0]["id"]
-        service.files().update(fileId=file_id, media_body=media).execute()
-        print(f"Updated existing GDrive file: {filename} (id={file_id})")
+        try:
+            service.files().update(fileId=file_id, media_body=media).execute()
+            print(f"Updated existing GDrive file: {filename} (id={file_id})")
+        except Exception as update_err:
+            print(f"Update failed ({update_err}), creating new file instead.")
+            metadata = {"name": filename, "parents": [folder_id]}
+            result = service.files().create(
+                body=metadata, media_body=media, fields="id"
+            ).execute()
+            print(f"Uploaded new GDrive file: {filename} (id={result['id']})")
     else:
         metadata = {"name": filename, "parents": [folder_id]}
         result = service.files().create(
