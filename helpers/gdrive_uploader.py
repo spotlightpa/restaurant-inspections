@@ -17,7 +17,11 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def upload_to_gdrive(file_path, folder_id=GDRIVE_FOLDER_ID):
+def upload_to_gdrive(file_path, folder_id=None):
+    if folder_id is None:
+        folder_id = os.getenv("GDRIVE_FOLDER_ID")
+    if not folder_id:
+        raise ValueError("GDRIVE_FOLDER_ID is not set.")
     """Upload a file to Google Drive, replacing any existing file with the same name."""
     service = get_drive_service()
     filename = os.path.basename(file_path)
