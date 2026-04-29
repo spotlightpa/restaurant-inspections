@@ -43,3 +43,7 @@ urllib3
 wcwidth==0.2.13
 wrapt==1.17.2
 python-docx
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
+google-auth
