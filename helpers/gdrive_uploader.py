@@ -31,8 +31,13 @@ def upload_to_gdrive(file_path, folder_id=None):
     print(f"[GDrive] Uploading: {filename} ({mime_type}) to folder: {folder_id}")
     print(f"[GDrive] File size: {os.path.getsize(file_path)} bytes")
 
-    query = f"name='{filename}' and trashed=false"
-    results = service.files().list(q=query, fields="files(id, name)").execute()
+    query = f"name='{filename}' and '{folder_id}' in parents and trashed=false"
+    results = service.files().list(
+        q=query,
+        fields="files(id, name)",
+        includeItemsFromAllDrives=True,
+        supportsAllDrives=True
+    ).execute()
     existing = results.get("files", [])
     print(f"[GDrive] Existing files found: {len(existing)}")
 
@@ -42,23 +47,26 @@ def upload_to_gdrive(file_path, folder_id=None):
         file_id = existing[0]["id"]
         print(f"[GDrive] Found existing file id={file_id}, updating...")
         try:
-            service.files().update(fileId=file_id, media_body=media).execute()
+            service.files().update(
+                fileId=file_id,
+                media_body=media,
+                supportsAllDrives=True
+            ).execute()
             print(f"[GDrive] Updated: {filename} (id={file_id})")
         except Exception as e:
             print(f"[GDrive] Update failed: {e}")
             raise
     else:
         print(f"[GDrive] No existing file found, creating new...")
-        metadata = {"name": filename}
+        metadata = {"name": filename, "parents": [folder_id]}
         try:
             result = service.files().create(
-                body=metadata, media_body=media, fields="id"
+                body=metadata,
+                media_body=media,
+                fields="id",
+                supportsAllDrives=True
             ).execute()
             file_id = result["id"]
-            service.permissions().create(
-                fileId=file_id,
-                body={"type": "anyone", "role": "reader"}
-            ).execute()
             print(f"[GDrive] Created: {filename} (id={file_id})")
             print(f"[GDrive] URL: https://drive.google.com/file/d/{file_id}/view")
         except Exception as e:
