@@ -17,14 +17,56 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-def upload_to_gdrive(file_path, folder_id=None):
+def get_or_create_subfolder(county_slug, parent_folder_id=None):
+    """Get or create a subfolder named after the county inside the parent folder."""
+    if parent_folder_id is None:
+        parent_folder_id = os.getenv("GDRIVE_FOLDER_ID")
+    if not parent_folder_id:
+        raise ValueError("GDRIVE_FOLDER_ID is not set.")
+
+    service = get_drive_service()
+    folder_name = county_slug.title()
+
+    query = (
+        f"name='{folder_name}' and '{parent_folder_id}' in parents "
+        f"and mimeType='application/vnd.google-apps.folder' and trashed=false"
+    )
+    results = service.files().list(
+        q=query,
+        fields="files(id, name)",
+        includeItemsFromAllDrives=True,
+        supportsAllDrives=True
+    ).execute()
+    existing = results.get("files", [])
+
+    if existing:
+        folder_id = existing[0]["id"]
+        print(f"[GDrive] Found existing subfolder '{folder_name}' (id={folder_id})")
+        return folder_id
+
+    metadata = {
+        "name": folder_name,
+        "mimeType": "application/vnd.google-apps.folder",
+        "parents": [parent_folder_id]
+    }
+    folder = service.files().create(
+        body=metadata,
+        fields="id",
+        supportsAllDrives=True
+    ).execute()
+    folder_id = folder["id"]
+    print(f"[GDrive] Created subfolder '{folder_name}' (id={folder_id})")
+    return folder_id
+
+
+def upload_to_gdrive(file_path, folder_id=None, filename_override=None):
     if folder_id is None:
         folder_id = os.getenv("GDRIVE_FOLDER_ID")
     if not folder_id:
         raise ValueError("GDRIVE_FOLDER_ID is not set.")
 
     service = get_drive_service()
-    filename = os.path.basename(file_path)
+    filename = filename_override or os.path.basename(file_path)
     ext = os.path.splitext(filename)[1]
     mime_type = MIME_TYPES.get(ext, "application/octet-stream")
 
