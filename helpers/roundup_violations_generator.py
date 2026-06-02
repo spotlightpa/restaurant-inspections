@@ -133,11 +133,11 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
         # Intro
         intro = doc.add_paragraph(
-            f"The state inspected the following food establishments in {county_name} County this week. "
+            f"The state inspected the following food establishments in {county_name} County. "
             f"To find more restaurant safety information, view full inspection reports, and sign up for real-time text or email alerts "
-            f"for specific restaurants or locations visit Spotlight PA\u2019s "
+            f"for specific restaurants or locations, visit Spotlight PA\u2019s "
         )
-        add_hyperlink(intro, "Restaurant Safety Tracker", "https://www.spotlightpa.org/restaurant-inspections")
+        add_hyperlink(intro, "Restaurant Safety Tracker", "https://www.spotlightpa.org/restaurant-inspections/")
         intro.add_run(".")
 
         intro2 = doc.add_paragraph("The ")
@@ -150,12 +150,12 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
         # Out-of-compliance section
         heading_out = doc.add_paragraph()
-        run_out = heading_out.add_run("Failed inspections this week:")
+        run_out = heading_out.add_run("Failed inspections:")
         run_out.bold = True
         run_out.font.size = Pt(16)
 
         if out.empty:
-            doc.add_paragraph("No failed inspections this week.")
+            doc.add_paragraph("No failed inspections.")
         else:
             # Group by facility+date so violations are aggregated per inspection
             for (facility, inspection_date), group in out.groupby(["facility", "inspection_date"], sort=False):
@@ -224,12 +224,12 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
         # In-compliance section
         heading_in = doc.add_paragraph()
-        run_in = heading_in.add_run("These establishments passed inspections this week:")
+        run_in = heading_in.add_run("These establishments passed inspections:")
         run_in.bold = True
         run_in.font.size = Pt(16)
 
         if passed_deduped.empty:
-            doc.add_paragraph("No passing inspections recorded this week.")
+            doc.add_paragraph("No passing inspections recorded.")
         else:
             for _, row in passed_deduped.iterrows():
                 facility = str(row.get("facility", ""))
@@ -238,6 +238,32 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 p = doc.add_paragraph(style="List Bullet")
                 p.add_run(facility).bold = True
                 p.add_run(f", {address}, {date}")
+
+        # Footer disclaimer
+        footer_texts = [
+            (
+                "This post was automatically generated with ",
+                "data",
+                "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections",
+                " from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have included violations and inspector comments only for facilities that were out of compliance in the previous week. We have also labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core."
+            ),
+        ]
+        p = doc.add_paragraph()
+        p.add_run("This post was automatically generated with ").italic = True
+        add_hyperlink(p, "data", "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections")
+        p.add_run(" from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have included violations and inspector comments only for facilities that were out of compliance in the previous week. We have also labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core.").italic = True
+
+        for footer_para in [
+            "Priority items contribute directly to the elimination, prevention, or reduction to an acceptable level of hazards associated with foodborne illness or injury, such as handwashing, food handling, and temperature control, or other direct food contamination threats, such as rodents or pests. We noted violations of priority items as high risk.",
+            "Priority foundation items support, facilitate, or enable control of risk factors that contribute to foodborne illness or injury, such as personnel training, labeling, and record-keeping. We noted violations of priority foundation items as moderate risk.",
+            "Core items usually relate to standard operating procedures, facility structures, equipment design, or general maintenance. We noted violations of core items as low risk.",
+        ]:
+            p = doc.add_paragraph()
+            p.add_run(footer_para).italic = True
+
+        p = doc.add_paragraph()
+        p.add_run("To read the full inspection reports, you can visit: ").italic = True
+        add_hyperlink(p, "pafoodsafety.pa.gov/web/inspection/publicinspectionsearch.aspx", "https://www.pafoodsafety.pa.gov/web/inspection/publicinspectionsearch.aspx")
 
         # Save docx
         folder = os.path.join("data", "roundup", county_slug)
