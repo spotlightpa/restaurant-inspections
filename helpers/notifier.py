@@ -3,6 +3,7 @@ import os
 import boto3
 import requests
 import pandas as pd
+import re
 
 
 def load_last_index(s3_client, bucket, prefix):
@@ -79,8 +80,9 @@ def detect_and_notify(df, s3_client, bucket, prefix):
                     "risk": risk,
                 })
 
+            slug = re.sub(r'[^a-z0-9]+', '-', facility_id.lower()).strip('-')
             new_inspections.append({
-                "facilityId": facility_id,
+                "facilityId": slug,
                 "facilityName": str(latest_row.get("facility", "")),
                 "inspectionDate": latest_date,
                 "violations": violations,
