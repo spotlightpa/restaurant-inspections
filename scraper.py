@@ -138,7 +138,6 @@ def main():
             downloaded_file_path = download.path()
             os.makedirs("data", exist_ok=True)
             destination_path = "data/inspections.xlsx"
-            facility_destination_path = "data/facilities.xlsx"
             shutil.copy(downloaded_file_path, destination_path)
 
             print(f"File downloaded and saved as: {destination_path}")
@@ -255,6 +254,7 @@ def main():
             page.keyboard.press("Enter")
             print("Activated 'Export data' for Facility Details.")
 
+        facility_destination_path = "data/facilities.xlsx"
         facility_download = facility_download_info.value
         shutil.copy(facility_download.path(), facility_destination_path)
         print(f"Facility Details saved as: {facility_destination_path}")
