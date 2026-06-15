@@ -111,12 +111,10 @@ def generate_roundup_from_violations(roundup_path, county_slug):
             print(f"⚠️ No inspections in date range for {county_slug}")
             return
 
-        # Split out/in
-        out = df[df["compliance"].str.strip().str.lower() == "out"].copy()
-        passed = df[df["compliance"].str.strip().str.lower() == "in"].copy()
+        has_violations = df[df["comment"].fillna("").str.strip() != ""].copy()
+        no_violations = df[df["comment"].fillna("").str.strip() == ""].copy()
 
-        # Deduplicate passed — one row per facility+date for the list
-        passed_deduped = passed.drop_duplicates(subset=["facility", "inspection_date"])
+        passed_deduped = no_violations.drop_duplicates(subset=["facility", "inspection_date"])
 
         # Build document
         doc = Document()
@@ -154,11 +152,10 @@ def generate_roundup_from_violations(roundup_path, county_slug):
         run_out.bold = True
         run_out.font.size = Pt(16)
 
-        if out.empty:
-            doc.add_paragraph("No failed inspections.")
+        if has_violations.empty:
+            doc.add_paragraph("No violations recorded.")
         else:
-            # Group by facility+date so violations are aggregated per inspection
-            for (facility, inspection_date), group in out.groupby(["facility", "inspection_date"], sort=False):
+            for (facility, inspection_date), group in has_violations.groupby(["facility", "inspection_date"], sort=False):
                 address = str(group.iloc[0].get("address", ""))
                 date = str(inspection_date)
 

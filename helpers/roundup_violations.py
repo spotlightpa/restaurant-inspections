@@ -31,11 +31,9 @@ def main():
         counties = ["berks", "centre"]
 
         for county_search in counties:
-            for compliance in ["out", "in"]:
-                file_slug = f"{county_search}_{compliance}"
+                file_slug = county_search
                 print(f"\nProcessing: {file_slug}")
 
-                # Reload the page fresh for each iteration to avoid stale state
                 page.goto(start_url)
                 page.wait_for_timeout(20000)
 
@@ -44,7 +42,6 @@ def main():
                     print("Could not find report frame after reload.")
                     continue
 
-                # Click Violation Details tab
                 tab_locator = report_frame.locator("text=Violation Details")
                 try:
                     tab_locator.wait_for(state="visible", timeout=30000)
@@ -56,7 +53,6 @@ def main():
 
                 report_frame.wait_for_timeout(10000)
 
-                # Click the imageBackground div to get focus into the report area
                 focus_div = report_frame.locator(".imageBackground").first
                 try:
                     focus_div.click(timeout=15000, force=True)
@@ -67,40 +63,15 @@ def main():
 
                 page.wait_for_timeout(500)
 
-                # Tab to reach the Compliance slicer
-                for _ in range(13):
+                for _ in range(7):
                     page.keyboard.press("Tab")
                     page.wait_for_timeout(150)
 
-                # Enter to focus slicer, select compliance filter
                 page.keyboard.press("Enter")
-                page.wait_for_timeout(300)
-                page.keyboard.press("ArrowRight")
-                page.wait_for_timeout(300)
-                if compliance == "out":
-                    page.keyboard.press("ArrowRight")
-                    page.wait_for_timeout(300)
-                page.keyboard.press("Enter")
-                report_frame.wait_for_timeout(3000)
-                print(f"Selected '{compliance}' via keyboard.")
-
-                # Tab to State-County
-                tab_count = 14 if compliance == "in" else 13
-                for _ in range(tab_count):
-                    page.keyboard.press("Tab")
-                    page.wait_for_timeout(150)
-
-                # Open dropdown
-                page.keyboard.press("Enter")
-                page.wait_for_timeout(500)
-
-                # Arrow down into list, then Enter to open search
-                page.keyboard.press("ArrowDown")
                 page.wait_for_timeout(300)
                 page.keyboard.press("Enter")
                 page.wait_for_timeout(500)
 
-                # Type county name and select
                 page.keyboard.type(county_search, delay=100)
                 page.wait_for_timeout(1000)
                 page.keyboard.press("ArrowDown")
@@ -109,11 +80,9 @@ def main():
                 report_frame.wait_for_timeout(3000)
                 print(f"Selected county: {county_search}")
 
-                # Close dropdown
                 page.keyboard.press("Escape")
                 report_frame.wait_for_timeout(2000)
 
-                # Re-locate hover/button elements after reload
                 hover_xpath = (
                     "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
                     "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
@@ -128,13 +97,13 @@ def main():
                 hover_element = report_frame.locator(hover_xpath)
                 button_locator = report_frame.locator(button_xpath)
 
-                # Hover and export
                 try:
                     hover_element.wait_for(state="visible", timeout=30000)
                     hover_element.hover()
                     button_locator.click()
                     page.wait_for_timeout(2000)
                     page.keyboard.press("Enter")
+                    page.wait_for_timeout(500)
 
                     for _ in range(4):
                         page.keyboard.press("Tab")
@@ -153,21 +122,17 @@ def main():
                     clean_data(county_path)
                     print(f"Cleaned: {county_path}")
 
-                    # Stamp county and compliance columns
                     df = pd.read_excel(county_path)
                     df["county"] = county_search
-                    df["compliance"] = compliance
                     df.to_excel(county_path, index=False)
-                    print(f"Stamped county={county_search}, compliance={compliance}")
+                    print(f"Stamped county={county_search}")
 
                 except Exception as e:
                     print(f"Download failed for {county_search}: {e}")
 
-        # Merge all downloaded files into one roundup file
         all_files = [
-            f"data/{county}_{compliance}.xlsx"
+            f"data/{county}.xlsx"
             for county in counties
-            for compliance in ["out", "in"]
         ]
         dfs = []
         for f in all_files:
