@@ -214,7 +214,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
                     for _, risk_label, summary in pairs:
                         p = doc.add_paragraph(style="List Bullet")
-                        if risk_label:
+                        if risk_label and risk_label.upper() != "NA":
                             clean_label = re.sub(r'\s*risk\s*', '', risk_label, flags=re.IGNORECASE).strip().title()
                             p.add_run(f"{clean_label}: ").bold = True
                         p.add_run(summary)
