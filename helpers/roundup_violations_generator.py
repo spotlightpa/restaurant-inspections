@@ -234,7 +234,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 date = str(row.get("inspection_date", ""))
                 p = doc.add_paragraph(style="List Bullet")
                 p.add_run(facility).bold = True
-                p.add_run(f", {address}, {date}")
+                p.add_run(f", {address}, on {date}")
 
         # Footer disclaimer
         footer_texts = [
