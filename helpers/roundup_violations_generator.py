@@ -159,7 +159,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 address = str(group.iloc[0].get("address", ""))
                 date = str(inspection_date)
 
-                facility_slug = re.sub(r'[^a-z0-9]+', '-', facility.lower()).strip('-')
+                facility_slug = re.sub(r'[^a-z0-9]+', '-', f"{facility} {address}".lower()).strip('-')
                 tracker_url = f"https://www.spotlightpa.org/restaurant-inspections/#{facility_slug}"
 
                 p = doc.add_paragraph()
