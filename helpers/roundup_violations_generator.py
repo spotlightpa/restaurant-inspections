@@ -111,7 +111,12 @@ def generate_roundup_from_violations(roundup_path, county_slug):
             print(f"⚠️ No inspections in date range for {county_slug}")
             return
 
-        all_facilities = df.copy()
+        # Split out/in
+        out = df[df["compliance"].str.strip().str.lower() == "out"].copy()
+        passed = df[df["compliance"].str.strip().str.lower() == "in"].copy()
+
+        # Deduplicate passed — one row per facility+date for the list
+        passed_deduped = passed.drop_duplicates(subset=["facility", "inspection_date"])
 
         # Build document
         doc = Document()
@@ -143,45 +148,17 @@ def generate_roundup_from_violations(roundup_path, county_slug):
             f"Many violations are relatively minor and are fixed at the time of inspection."
         )
 
-        risk_order = {"High Risk": 0, "Moderate Risk": 1, "Low Risk": 2}
+        # Out-of-compliance section
+        heading_out = doc.add_paragraph()
+        run_out = heading_out.add_run("Failed inspections:")
+        run_out.bold = True
+        run_out.font.size = Pt(16)
 
-        def facility_sort_key(group):
-            if "risk_level" not in group.columns:
-                return (99, 0)
-            levels = (
-                group["risk_level"]
-                .dropna()
-                .astype(str)
-                .str.split(r"\s*\|\s*")
-                .explode()
-                .str.strip()
-                .str.title()
-            )
-            levels = levels[~levels.isin(["Na", "Nan", ""])]
-            best = min((risk_order.get(l, 99) for l in levels), default=99)
-            return (best, -len(levels))
-
-        facility_groups = list(all_facilities.groupby(["facility", "inspection_date"], sort=False))
-        facility_groups.sort(key=lambda x: facility_sort_key(x[1]))
-
-        with_violations = [(k, g) for k, g in facility_groups if any(
-            str(v).strip() not in ("", "nan", "NA")
-            for v in g.get("comment", pd.Series(dtype=str)).fillna("")
-        )]
-        without_violations = [(k, g) for k, g in facility_groups if not any(
-            str(v).strip() not in ("", "nan", "NA")
-            for v in g.get("comment", pd.Series(dtype=str)).fillna("")
-        )]
-
-        heading_with = doc.add_paragraph()
-        run_with = heading_with.add_run("Failed inspections:")
-        run_with.bold = True
-        run_with.font.size = Pt(16)
-
-        if not with_violations:
+        if out.empty:
             doc.add_paragraph("No failed inspections.")
         else:
-            for (facility, inspection_date), group in with_violations:
+            # Group by facility+date so violations are aggregated per inspection
+            for (facility, inspection_date), group in out.groupby(["facility", "inspection_date"], sort=False):
                 address = str(group.iloc[0].get("address", ""))
                 date = str(inspection_date)
 
@@ -193,6 +170,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 p.add_run(f"\n{address}").italic = True
                 p.add_run(f"\n{date}").italic = True
 
+                # Count violations by risk level and show summary line
                 if "risk_level" in group.columns:
                     all_levels = (
                         group["risk_level"]
@@ -216,39 +194,47 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                         summary_line = ", ".join(parts) + " violation" + ("s" if total != 1 else "")
                         doc.add_paragraph(summary_line)
 
-                pairs = []
-                for _, vrow in group.iterrows():
-                    raw_summary = str(vrow.get("comment", ""))
-                    raw_risk = str(vrow.get("risk_level", ""))
-                    if not raw_summary or raw_summary.lower() in ("nan", ""):
-                        continue
-                    summaries = [s.strip() for s in raw_summary.split(" | ") if s.strip()]
-                    risks = [r.strip() for r in raw_risk.split(" | ") if r.strip()] if raw_risk and raw_risk.lower() not in ("nan", "") else []
-                    for i, summary in enumerate(summaries):
-                        risk = risks[i] if i < len(risks) else ""
-                        sort_key = risk_order.get(risk.title(), 99)
-                        pairs.append((sort_key, risk, summary))
+                # Add AI summaries as bullets, ordered high to low risk, with bold risk label
+                if "ai_summary" in group.columns:
+                    risk_order = {"High Risk": 0, "Moderate Risk": 1, "Low Risk": 2}
 
-                pairs.sort(key=lambda x: x[0])
+                    # Explode pipe-delimited comments and risk levels into individual rows
+                    pairs = []
+                    for _, vrow in group.iterrows():
+                        raw_summary = str(vrow.get("comment", ""))
+                        raw_risk = str(vrow.get("risk_level", ""))
+                        if not raw_summary or raw_summary.lower() in ("nan", ""):
+                            continue
+                        summaries = [s.strip() for s in raw_summary.split(" | ") if s.strip()]
+                        risks = [r.strip() for r in raw_risk.split(" | ") if r.strip()] if raw_risk and raw_risk.lower() not in ("nan", "") else []
+                        for i, summary in enumerate(summaries):
+                            risk = risks[i] if i < len(risks) else ""
+                            sort_key = risk_order.get(risk.title(), 99)
+                            pairs.append((sort_key, risk, summary))
 
-                for _, risk_label, summary in pairs:
-                    p = doc.add_paragraph(style="List Bullet")
-                    if risk_label:
-                        clean_label = re.sub(r'\s*risk\s*', '', risk_label, flags=re.IGNORECASE).strip().title()
-                        p.add_run(f"{clean_label}: ").bold = True
-                    p.add_run(summary)
+                    # Sort all individual violations high to low
+                    pairs.sort(key=lambda x: x[0])
 
-        heading_without = doc.add_paragraph()
-        run_without = heading_without.add_run("These establishments passed inspections:")
-        run_without.bold = True
-        run_without.font.size = Pt(16)
+                    for _, risk_label, summary in pairs:
+                        p = doc.add_paragraph(style="List Bullet")
+                        if risk_label:
+                            clean_label = re.sub(r'\s*risk\s*', '', risk_label, flags=re.IGNORECASE).strip().title()
+                            p.add_run(f"{clean_label}: ").bold = True
+                        p.add_run(summary)
 
-        if not without_violations:
+        # In-compliance section
+        heading_in = doc.add_paragraph()
+        run_in = heading_in.add_run("These establishments passed inspections:")
+        run_in.bold = True
+        run_in.font.size = Pt(16)
+
+        if passed_deduped.empty:
             doc.add_paragraph("No passing inspections recorded.")
         else:
-            for (facility, inspection_date), group in without_violations:
-                address = str(group.iloc[0].get("address", ""))
-                date = str(inspection_date)
+            for _, row in passed_deduped.iterrows():
+                facility = str(row.get("facility", ""))
+                address = str(row.get("address", ""))
+                date = str(row.get("inspection_date", ""))
                 p = doc.add_paragraph(style="List Bullet")
                 p.add_run(facility).bold = True
                 p.add_run(f", {address}, {date}")
