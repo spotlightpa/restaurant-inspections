@@ -150,7 +150,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
         # Out-of-compliance section
         heading_out = doc.add_paragraph()
-        run_out = heading_out.add_run("Failed inspections:")
+        run_out = heading_out.add_run("Facilities with violations:")
         run_out.bold = True
         run_out.font.size = Pt(16)
 
@@ -224,7 +224,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
 
         # In-compliance section
         heading_in = doc.add_paragraph()
-        run_in = heading_in.add_run("These establishments passed inspections:")
+        run_in = heading_in.add_run("Facilities with no violations:")
         run_in.bold = True
         run_in.font.size = Pt(16)
 
@@ -251,7 +251,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
         p = doc.add_paragraph()
         p.add_run("This post was automatically generated with ").italic = True
         add_hyperlink(p, "data", "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections")
-        p.add_run(" from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have included violations and inspector comments only for facilities that were out of compliance in the previous week. We have also labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core.").italic = True
+        p.add_run(" from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have also labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core.").italic = True
 
         for footer_para in [
             "Priority items contribute directly to the elimination, prevention, or reduction to an acceptable level of hazards associated with foodborne illness or injury, such as handwashing, food handling, and temperature control, or other direct food contamination threats, such as rodents or pests. We noted violations of priority items as high risk.",
