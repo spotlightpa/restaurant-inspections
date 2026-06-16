@@ -107,7 +107,7 @@ def summarize_comment(comment: str, api_key: str) -> dict:
     client = Anthropic(api_key=api_key)
     try:
         message = client.messages.create(
-            model="claude-sonnet-4-20250514",
+            model="claude-sonnet-4-6",
             max_tokens=500,
             system=SYSTEM_PROMPT,
             messages=[
@@ -116,6 +116,7 @@ def summarize_comment(comment: str, api_key: str) -> dict:
         )
         import json
         response_text = message.content[0].text.strip()
+        response_text = response_text.replace("```json", "").replace("```", "").strip()
         result = json.loads(response_text)
         return {
             "summary": result.get("summary", ""),
@@ -146,10 +147,9 @@ def add_ai_summaries(local_inspections_file: str) -> bool:
         existing_summaries = load_summaries_from_s3()
         summaries_dict = {}
         if not existing_summaries.empty:
-            summaries_dict = dict(zip(
-                existing_summaries["comment_hash"],
-                existing_summaries["ai_summary"]
-            ))
+            for _, row in existing_summaries.iterrows():
+                if pd.notna(row["ai_summary"]) and str(row["ai_summary"]).strip():
+                    summaries_dict[row["comment_hash"]] = row["ai_summary"]
 
         # Expand pipe-delimited comments into individual rows for per-violation summarization
         df["_orig_index"] = df.index
