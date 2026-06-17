@@ -186,8 +186,19 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                         if count:
                             clean_level = re.sub(r'\s*risk\s*', '', level, flags=re.IGNORECASE).strip().lower()
                             parts.append(f"{count} {clean_level} risk")
+                    comments = group["comment"].fillna("").astype(str)
+                    risk_levels = group["risk_level"].fillna("").astype(str)
+                    other_count = 0
+                    for comment, risk in zip(comments, risk_levels):
+                        if comment.strip():
+                            risks = [r.strip().lower() for r in risk.split("|")]
+                            for r in risks:
+                                if r in ("na", "nan", ""):
+                                    other_count += 1
+                    if other_count:
+                        parts.append(f"{other_count} other")
                     if parts:
-                        total = sum(counts.values)
+                        total = sum(counts.values) + other_count
                         summary_line = ", ".join(parts) + " violation" + ("s" if total != 1 else "")
                         doc.add_paragraph(summary_line)
 
