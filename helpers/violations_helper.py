@@ -46,17 +46,14 @@ def translate_priority_to_risk(priority_level: str) -> str:
         "C": "low risk"
     }
     
-    # Split by comma in case there are multiple
     parts = [p.strip() for p in priority_level.split(",")]
-    risk_parts = []
+    priority_order = ["P", "Pf", "C"]
     
-    for part in parts:
-        if part in risk_map:
-            risk_parts.append(risk_map[part])
-        else:
-            risk_parts.append("NA")
+    for priority in priority_order:
+        if priority in parts:
+            return risk_map[priority]
     
-    return ", ".join(risk_parts)
+    return "NA"
 
 def join_violation_details(local_inspections_file: str) -> bool:
     try:

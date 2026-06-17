@@ -217,6 +217,8 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                         if risk_label and risk_label.upper() != "NA":
                             clean_label = re.sub(r'\s*risk\s*', '', risk_label, flags=re.IGNORECASE).strip().title()
                             p.add_run(f"{clean_label}: ").bold = True
+                        else:
+                            p.add_run("Other: ").bold = True
                         p.add_run(summary)
 
         # In-compliance section
