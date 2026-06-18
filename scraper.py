@@ -19,12 +19,6 @@ def main():
 
     start_url = "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections"
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=headless, slow_mo=500)
-        context = browser.new_context(accept_downloads=True)
-        page = context.new_page()
-        page.goto(start_url)
-
         # Sync data folder from S3 before anything else
         print("Syncing data folder from S3...")
         try:
@@ -52,221 +46,216 @@ def main():
         except Exception as e:
             print(f"⚠️ S3 sync failed, continuing with local data: {e}")
 
-        # Wait (ms) for the page to load completely
-        page.wait_for_timeout(20000)
+    # Download all 66 counties and merge
+    print("Starting county-by-county download...")
+    destination_path = "data/inspections.xlsx"
 
-        # Identify the Power BI iframe
-        report_frame = page.frame(url=re.compile(r"cedatareporting\.pa\.gov/powerbi/\?id="))
-        if not report_frame:
-            print("Could not find the main Power BI report frame.")
-            browser.close()
-            return
+    COUNTIES = [
+        "Adams", "Allegheny", "Armstrong", "Beaver", "Bedford", "Berks", "Blair",
+        "Bradford", "Bucks", "Butler", "Cambria", "Cameron", "Carbon", "Centre",
+        "Chester", "Clarion", "Clearfield", "Clinton", "Columbia", "Crawford",
+        "Cumberland", "Dauphin", "Delaware", "Elk", "Erie", "Fayette", "Forest",
+        "Franklin", "Fulton", "Greene", "Huntingdon", "Indiana", "Jefferson",
+        "Juniata", "Lackawanna", "Lancaster", "Lawrence", "Lebanon", "Lehigh",
+        "Luzerne", "Lycoming", "McKean", "Mercer", "Mifflin", "Monroe",
+        "Montgomery", "Montour", "Northampton", "Northumberland", "Perry",
+        "Philadelphia", "Pike", "Potter", "Schuylkill", "Snyder", "Somerset",
+        "Sullivan", "Susquehanna", "Tioga", "Union", "Venango", "Warren",
+        "Washington", "Wayne", "Westmoreland", "Wyoming", "York"
+    ]
 
-        # Click "Violation Details"
-        tab_locator = report_frame.locator("text=Violation Details")
-        try:
-            tab_locator.wait_for(state="visible", timeout=30000)
-            tab_locator.click()
-            print("Clicked 'Violation Details' tab.")
-        except TimeoutError:
-            print("Violation Details tab not found or not visible.")
-            browser.close()
-            return
+    import time
+    run_start = time.time()
 
-        report_frame.wait_for_timeout(5000)
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=headless, slow_mo=500)
+        context = browser.new_context(accept_downloads=True)
+        page = context.new_page()
 
-        # Hover over the area
-        hover_xpath = (
-            "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
-            "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
-            "transform/div/div[2]/div/div"
-        )
-        hover_element = report_frame.locator(hover_xpath)
-        try:
-            hover_element.wait_for(state="visible", timeout=30000)
-            hover_element.hover()
-            print("Hovered over the visual area.")
-        except TimeoutError:
-            print("Hover element not found or not visible.")
-            browser.close()
-            return
+        failed_counties = []
+        succeeded_counties = []
 
-        # Click the "..." menu icon
-        button_xpath = (
-            "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
-            "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
-            "transform/div/visual-container-header/div/div/div/visual-container-options-menu/"
-            "visual-header-item-container/div"
-        )
-        button_locator = report_frame.locator(button_xpath)
-        try:
-            button_locator.wait_for(state="visible", timeout=30000)
-            button_locator.click()
-            print("Clicked the '...' menu button.")
-        except TimeoutError:
-            print("'...' menu button not found or not visible.")
-            browser.close()
-            return
+        for i, county in enumerate(COUNTIES, start=1):
+            slug = county.lower()
+            county_path = f"data/counties/{slug}.xlsx"
+            tmp_path = f"data/counties/{slug}_tmp.xlsx"
+            os.makedirs("data/counties", exist_ok=True)
 
-        # Wait briefly (ms) to ensure the menu is rendered
-        page.wait_for_timeout(2000)
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
 
-        # Keyboard Navigation to Click "Export data"
-        try:
-            # Press the down arrow key to navigate to "Export data"
-            page.keyboard.press("Enter")
-            print("Navigated to 'Export data' using keyboard.")
-        except Exception as e:
-            print(f"Keyboard navigation failed: {e}")
+            county_start = time.time()
+            print(f"[{i}/{len(COUNTIES)}] Downloading {county}...")
 
-        # Keyboard Navigation to Click "Export"
-        try:
-            # Press the Tab key
-            for _ in range(4):
-                page.keyboard.press("Tab")
-                page.wait_for_timeout(200)  # Small (ms) delay to ensure stable navigation
+            try:
+                page.goto(start_url)
+                page.wait_for_timeout(20000)
 
-            # Press Enter to activate the focused button (ms)
-            with page.expect_download(timeout=60000) as download_info:
+                report_frame = page.frame(url=re.compile(r"cedatareporting\.pa\.gov/powerbi/\?id="))
+                if not report_frame:
+                    raise Exception("Could not find Power BI iframe")
+
+                tab_locator = report_frame.locator("text=Violation Details")
+                tab_locator.wait_for(state="visible", timeout=30000)
+                tab_locator.click()
+                report_frame.wait_for_timeout(10000)
+
+                focus_div = report_frame.locator(".imageBackground").first
+                focus_div.click(timeout=15000, force=True)
+                page.wait_for_timeout(500)
+
+                for _ in range(7):
+                    page.keyboard.press("Tab")
+                    page.wait_for_timeout(150)
+
                 page.keyboard.press("Enter")
-                print("Activated 'Export data' button via keyboard navigation.")
+                page.wait_for_timeout(300)
+                page.keyboard.press("Enter")
+                page.wait_for_timeout(500)
 
-            # Get the download object
-            download = download_info.value
+                page.keyboard.type(slug, delay=100)
+                page.wait_for_timeout(1000)
+                page.keyboard.press("ArrowDown")
+                page.wait_for_timeout(300)
+                page.keyboard.press("Enter")
+                report_frame.wait_for_timeout(3000)
 
-            # Save the downloaded file
-            downloaded_file_path = download.path()
-            os.makedirs("data", exist_ok=True)
-            destination_path = "data/inspections.xlsx"
-            shutil.copy(downloaded_file_path, destination_path)
+                page.keyboard.press("Escape")
+                report_frame.wait_for_timeout(2000)
 
-            print(f"File downloaded and saved as: {destination_path}")
+                hover_xpath = (
+                    "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
+                    "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
+                    "transform/div/div[2]/div/div"
+                )
+                button_xpath = (
+                    "xpath=//*[@id='pvExplorationHost']/div/div/exploration/div/explore-canvas/"
+                    "div/div[2]/div/div[2]/div[2]/visual-container-repeat/visual-container[19]/"
+                    "transform/div/visual-container-header/div/div/div/visual-container-options-menu/"
+                    "visual-header-item-container/div"
+                )
+                hover_element = report_frame.locator(hover_xpath)
+                button_locator = report_frame.locator(button_xpath)
 
-            # Clean the data file
-            clean_data(destination_path)
+                hover_element.wait_for(state="visible", timeout=30000)
+                hover_element.hover()
+                button_locator.click()
+                page.wait_for_timeout(2000)
 
-            # Process addresses and store them
-            geocode(destination_path)
+                page.keyboard.press("Enter")
+                page.wait_for_timeout(500)
 
-            # Build/merge unique facility categories store
-            # upsert_categories(destination_path)
+                for _ in range(4):
+                    page.keyboard.press("Tab")
+                    page.wait_for_timeout(200)
 
-            # Label unlabeled rows with AI (exactly on facility/address/city)
-            # label_categories_via_ai(
-            #     destination_path,
-            #     model=os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-            # )
+                with page.expect_download(timeout=120000) as dl_info:
+                    page.keyboard.press("Enter")
 
-            # Join categories back into export (exact match on facility/address/city)
-            # join_categories_into_inspections(destination_path)
+                dl = dl_info.value
+                shutil.copy(dl.path(), tmp_path)
 
-            # Join violation code details from S3
-            from helpers.violations_helper import join_violation_details
-            join_violation_details(destination_path)
-            
-            # Add AI summaries to comments
-            from helpers.ai_summarizer import add_ai_summaries
-            add_ai_summaries(destination_path)
+                clean_data(tmp_path)
 
-            # Drop the 'isp' column before uploading to S3 to reduce file siz
-            df_final = pd.read_excel(destination_path)
-            if "isp" in df_final.columns:
-                df_final.drop(columns=["isp"], inplace=True)
-            
-            # Add unique ID column for frontend grouping
-            df_final['id'] = df_final['facility'].fillna('') + ' — ' + df_final['address'].fillna('')
-            
-            # Sort most recent to oldest
-            date_col = next((c for c in df_final.columns if c in ("date", "inspection_date", "insp_date")), None)
-            if date_col:
-                ap_map = {
-                    r"Jan\.": "January", r"Feb\.": "February", r"Aug\.": "August",
-                    r"Sept\.": "September", r"Oct\.": "October", r"Nov\.": "November",
-                    r"Dec\.": "December"
-                }
-                normalized = df_final[date_col].astype(str)
-                for pattern, full in ap_map.items():
-                    normalized = normalized.str.replace(pattern, full, regex=True)
-                df_final = df_final.copy()
-                df_final["_sort_date"] = pd.to_datetime(normalized, errors="coerce")
-                df_final = df_final.sort_values("_sort_date", ascending=False).drop(columns=["_sort_date"])
+                df = pd.read_excel(tmp_path)
+                row_count = len(df)
 
-            df_final.to_excel(destination_path, index=False)
+                if row_count == 0:
+                    raise Exception("Downloaded file has 0 rows after cleaning")
 
-            # Detect new inspections and trigger notifications
-            from helpers.notifier import detect_and_notify
-            detect_and_notify(df_final, s3_client, bucket, prefix)
+                if row_count >= 149000:
+                    print(f"⚠️ WARNING: {county} has {row_count} rows — may be hitting export cap")
 
-            # Upload to S3
-            upload_to_s3(destination_path)
+                df["county"] = slug
+                df.to_excel(tmp_path, index=False)
+                shutil.move(tmp_path, county_path)
+                print(f"✅ [{i}/{len(COUNTIES)}] {county} — {row_count} rows")
+                succeeded_counties.append(county)
 
-        except Exception as e:
-            print(f"Download handling failed: {e}")
+            except Exception as e:
+                print(f"❌ [{i}/{len(COUNTIES)}] {county} FAILED: {e}")
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+                failed_counties.append(county)
+                continue
 
-        # Scrape Facility Details tab
-        tab_locator_facility = report_frame.locator("text=Facility Details")
-        try:
-            tab_locator_facility.wait_for(state="visible", timeout=30000)
-            tab_locator_facility.click()
-            print("Clicked 'Facility Details' tab.")
-        except TimeoutError:
-            print("Facility Details tab not found or not visible.")
-            browser.close()
-            return
-
-        report_frame.wait_for_timeout(5000)
-
-        # Target the "Recent Inspection Details" visual by its aria-label
-        facility_hover_xpath = "xpath=//div[@aria-label='Recent Inspection Details ']"
-        facility_hover_element = report_frame.locator(facility_hover_xpath)
-        try:
-            facility_hover_element.wait_for(state="visible", timeout=30000)
-            facility_hover_element.hover()
-            print("Hovered over 'Recent Inspection Details' visual.")
-        except TimeoutError:
-            print("Could not find 'Recent Inspection Details' visual.")
-            browser.close()
-            return
-
-        facility_button_xpath = (
-            "xpath=//div[@aria-label='Recent Inspection Details ']"
-            "/ancestor::transform"
-            "//visual-container-options-menu//visual-header-item-container/div"
-        )
-        facility_button_locator = report_frame.locator(facility_button_xpath)
-        try:
-            facility_button_locator.wait_for(state="visible", timeout=30000)
-            facility_button_locator.click()
-            print("Clicked '...' menu on 'Recent Inspection Details'.")
-        except TimeoutError:
-            print("Could not find '...' menu on 'Recent Inspection Details'.")
-            browser.close()
-            return
-
-        page.wait_for_timeout(2000)
-        page.keyboard.press("Enter")
-
-        for _ in range(4):
-            page.keyboard.press("Tab")
-            page.wait_for_timeout(200)
-
-        with page.expect_download(timeout=60000) as facility_download_info:
-            page.keyboard.press("Enter")
-            print("Activated 'Export data' for Facility Details.")
-
-        facility_destination_path = "data/facilities.xlsx"
-        facility_download = facility_download_info.value
-        shutil.copy(facility_download.path(), facility_destination_path)
-        print(f"Facility Details saved as: {facility_destination_path}")
-
-        from helpers.facilities_cleaner import clean_facilities
-        clean_facilities(facility_destination_path)
-
-        upload_to_s3(facility_destination_path)
-
-        # Wait to observe the result (ms)
-        page.wait_for_timeout(5000)
         browser.close()
+
+    print(f"\nCounty download complete — {len(succeeded_counties)} succeeded, {len(failed_counties)} failed")
+    if failed_counties:
+        print(f"Failed counties: {', '.join(failed_counties)}")
+
+    # Merge all county files
+    print("Merging county files...")
+    county_dfs = []
+    for county in COUNTIES:
+        slug = county.lower()
+        county_path = f"data/counties/{slug}.xlsx"
+        if os.path.exists(county_path):
+            county_dfs.append(pd.read_excel(county_path, dtype=str))
+        else:
+            print(f"⚠️ Missing county file: {county_path}")
+
+    if not county_dfs:
+        print("❌ No county files to merge, aborting.")
+        return
+
+    fresh = pd.concat(county_dfs, ignore_index=True)
+    fresh = fresh.drop_duplicates(subset=["facility", "address", "inspection_date"])
+    print(f"Merged {len(fresh)} rows from {len(county_dfs)} counties")
+
+    enrich_cols = ["Latitude", "Longitude", "spotlight_pa", "priority_level", "risk_level", "requirement_description", "ai_summary"]
+    if os.path.exists(destination_path):
+        existing = pd.read_excel(destination_path, dtype=str)
+        existing_enrich = existing[["facility", "address", "inspection_date"] + [c for c in enrich_cols if c in existing.columns]].drop_duplicates(subset=["facility", "address", "inspection_date"])
+        fresh = fresh.merge(existing_enrich, on=["facility", "address", "inspection_date"], how="left")
+        print(f"Preserved enriched data for matching rows")
+
+    # Drop isp, add id, sort
+    if "isp" in fresh.columns:
+        fresh.drop(columns=["isp"], inplace=True)
+
+    fresh["id"] = fresh["facility"].fillna("") + " — " + fresh["address"].fillna("")
+
+    ap_map = {
+        r"Jan\.": "January", r"Feb\.": "February", r"Aug\.": "August",
+        r"Sept\.": "September", r"Oct\.": "October", r"Nov\.": "November",
+        r"Dec\.": "December"
+    }
+    normalized = fresh["inspection_date"].astype(str)
+    for pattern, full in ap_map.items():
+        normalized = normalized.str.replace(pattern, full, regex=True)
+    fresh["_sort_date"] = pd.to_datetime(normalized, errors="coerce")
+    fresh = fresh.sort_values("_sort_date", ascending=False).drop(columns=["_sort_date"])
+    fresh = fresh.reset_index(drop=True)
+
+    fresh.to_excel(destination_path, index=False)
+    print(f"Saved merged inspections to {destination_path}")
+
+    # Join violation details for rows missing risk_level
+    from helpers.violations_helper import join_violation_details
+    join_violation_details(destination_path)
+
+    # Drop Latitude/Longitude so geocoder can merge them fresh from addresses.csv
+    _df_pre_geo = pd.read_excel(destination_path, dtype=str)
+    if "Latitude" in _df_pre_geo.columns:
+        _df_pre_geo.drop(columns=["Latitude", "Longitude"], inplace=True)
+        _df_pre_geo.to_excel(destination_path, index=False)
+    geocode(destination_path)
+
+    # Add AI summaries
+    from helpers.ai_summarizer import add_ai_summaries
+    add_ai_summaries(destination_path)
+
+    # Re-read final file for notify and upload
+    df_final = pd.read_excel(destination_path)
+
+    # Detect new inspections and trigger notifications
+    # from helpers.notifier import detect_and_notify
+    # detect_and_notify(df_final, s3_client, bucket, prefix)
+
+    # Upload to S3
+    upload_to_s3(destination_path)
 
     # Run roundup violations scraper
     from helpers.roundup_violations import main as run_roundup_violations
