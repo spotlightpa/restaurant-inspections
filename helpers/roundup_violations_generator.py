@@ -202,7 +202,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                         count = counts.get(level, 0)
                         if count:
                             clean_level = re.sub(r'\s*risk\s*', '', level, flags=re.IGNORECASE).strip().lower()
-                            parts.append(f"{count} {clean_level} risk")
+                            parts.append(f"{count} {clean_level} priority")
                     comments = group["comment"].fillna("").astype(str)
                     risk_levels = group["risk_level"].fillna("").astype(str)
                     other_count = 0
@@ -244,7 +244,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                         p = doc.add_paragraph(style="List Bullet")
                         if risk_label and risk_label.upper() != "NA":
                             clean_label = re.sub(r'\s*risk\s*', '', risk_label, flags=re.IGNORECASE).strip().title()
-                            p.add_run(f"{clean_label}: ").bold = True
+                            p.add_run(f"{clean_label} Priority: ").bold = True
                         else:
                             p.add_run("Other: ").bold = True
                         p.add_run(summary)
@@ -278,12 +278,12 @@ def generate_roundup_from_violations(roundup_path, county_slug):
         p = doc.add_paragraph()
         p.add_run("This post was automatically generated with ").italic = True
         add_hyperlink(p, "data", "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections")
-        p.add_run(" from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have also labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core.").italic = True
+        p.add_run(" from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have also labeled violations as high, moderate, or low priority. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core.").italic = True
 
         for footer_para in [
-            "Priority items contribute directly to the elimination, prevention, or reduction to an acceptable level of hazards associated with foodborne illness or injury, such as handwashing, food handling, and temperature control, or other direct food contamination threats, such as rodents or pests. We noted violations of priority items as high risk.",
-            "Priority foundation items support, facilitate, or enable control of risk factors that contribute to foodborne illness or injury, such as personnel training, labeling, and record-keeping. We noted violations of priority foundation items as moderate risk.",
-            "Core items usually relate to standard operating procedures, facility structures, equipment design, or general maintenance. We noted violations of core items as low risk.",
+            "Priority items contribute directly to the elimination, prevention, or reduction to an acceptable level of hazards associated with foodborne illness or injury, such as handwashing, food handling, and temperature control, or other direct food contamination threats, such as rodents or pests. We noted violations of priority items as high priority.",
+            "Priority foundation items support, facilitate, or enable control of risk factors that contribute to foodborne illness or injury, such as personnel training, labeling, and record-keeping. We noted violations of priority foundation items as moderate priority.",
+            "Core items usually relate to standard operating procedures, facility structures, equipment design, or general maintenance. We noted violations of core items as low priority.",
         ]:
             p = doc.add_paragraph()
             p.add_run(footer_para).italic = True
