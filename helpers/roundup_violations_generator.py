@@ -10,6 +10,7 @@ from docx.oxml import OxmlElement
 
 
 def add_hyperlink(paragraph, text, url):
+    from docx.shared import RGBColor
     part = paragraph.part
     r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
     hyperlink = OxmlElement("w:hyperlink")
@@ -19,6 +20,12 @@ def add_hyperlink(paragraph, text, url):
     rStyle = OxmlElement("w:rStyle")
     rStyle.set(qn("w:val"), "Hyperlink")
     rPr.append(rStyle)
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0563C1")
+    rPr.append(color)
+    u = OxmlElement("w:u")
+    u.set(qn("w:val"), "single")
+    rPr.append(u)
     run.append(rPr)
     t = OxmlElement("w:t")
     t.text = text
@@ -146,7 +153,6 @@ def generate_roundup_from_violations(roundup_path, county_slug):
             f"Many violations are relatively minor and are fixed at the time of inspection."
         )
 
-        # Out-of-compliance section
         heading_out = doc.add_paragraph()
         run_out = heading_out.add_run("Facilities with violations:")
         run_out.bold = True
@@ -155,6 +161,17 @@ def generate_roundup_from_violations(roundup_path, county_slug):
         if has_violations.empty:
             doc.add_paragraph("No violations recorded.")
         else:
+            toc_facilities = has_violations.drop_duplicates(subset=["facility", "inspection_date"])
+            for _, toc_row in toc_facilities.iterrows():
+                facility = str(toc_row.get("facility", ""))
+                address = str(toc_row.get("address", ""))
+                facility_slug = re.sub(r'[^a-z0-9]+', '-', f"{facility} {address}".lower()).strip('-')
+                tracker_url = f"https://www.spotlightpa.org/restaurant-inspections/#{facility_slug}"
+                p = doc.add_paragraph(style="List Bullet")
+                add_hyperlink(p, facility, tracker_url)
+
+            doc.add_paragraph()
+
             for (facility, inspection_date), group in has_violations.groupby(["facility", "inspection_date"], sort=False):
                 address = str(group.iloc[0].get("address", ""))
                 date = str(inspection_date)
@@ -255,7 +272,7 @@ def generate_roundup_from_violations(roundup_path, county_slug):
                 "This post was automatically generated with ",
                 "data",
                 "http://cedatareporting.pa.gov/reports/powerbi/Public/AG/FS/PBI/Food_Safety_Inspections",
-                " from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. We have included violations and inspector comments only for facilities that were out of compliance in the previous week. We have also labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core."
+                " from the Pennsylvania Department of Agriculture\u2019s database of Food Safety Inspections for Retail Facilities. A restaurant may have a few violations and still be in compliance, or it may have only one violation and be out of compliance. To help provide context we have labeled violations as high, moderate, or low risk. These categories align directly with priority levels identified in the FDA Food Code: Priority, Priority Foundation, and Core."
             ),
         ]
         p = doc.add_paragraph()
