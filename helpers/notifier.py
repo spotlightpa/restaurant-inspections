@@ -33,8 +33,6 @@ def save_new_index(s3_client, bucket, prefix, index):
 
 
 def detect_and_notify(df, s3_client, bucket, prefix):
-    print("Alerts disabled, skipping notifications.")
-    return
     """
     Compare current inspections against last known index.
     Call the Netlify notify function for any new inspections found.

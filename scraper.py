@@ -251,8 +251,8 @@ def main():
     df_final = pd.read_excel(destination_path)
 
     # Detect new inspections and trigger notifications
-    # from helpers.notifier import detect_and_notify
-    # detect_and_notify(df_final, s3_client, bucket, prefix)
+    from helpers.notifier import detect_and_notify
+    detect_and_notify(df_final, s3_client, bucket, prefix)
 
     # Upload to S3
     upload_to_s3(destination_path)
