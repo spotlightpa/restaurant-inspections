@@ -32,6 +32,8 @@ def save_new_index(s3_client, bucket, prefix, index):
     print(f"✅ Saved new index with {len(index)} facilities.")
 
 
+NOTIFICATION_DELAY_RUNS = 1  # Number of scraper runs to wait before sending. Set to 0 to send immediately.
+
 def detect_and_notify(df, s3_client, bucket, prefix):
     """
     Compare current inspections against last known index.
@@ -57,7 +59,17 @@ def detect_and_notify(df, s3_client, bucket, prefix):
             # Brand new facility — skip notification, just index it
             continue
         if latest_date != prev_date:
-            # New inspection detected for a known facility
+            from datetime import datetime, timedelta
+            try:
+                parsed = datetime.strptime(latest_date, "%b. %d, %Y")
+            except ValueError:
+                try:
+                    parsed = datetime.strptime(latest_date, "%B %d, %Y")
+                except ValueError:
+                    parsed = None
+            if not parsed or parsed < datetime.now() - timedelta(days=0):
+                current_index[facility_id] = latest_date
+                continue
             print(f"🆕 New inspection: {facility_id} ({prev_date} → {latest_date})")
 
             # Build violations list from the latest row
@@ -91,12 +103,47 @@ def detect_and_notify(df, s3_client, bucket, prefix):
     # Save updated index
     save_new_index(s3_client, bucket, prefix, current_index)
 
-    # Fire notifications if any new inspections found
-    if not new_inspections:
-        print("No new inspections detected.")
+    # Load pending notifications from previous run
+    pending_key = f"{prefix}pending_notifications.json"
+    pending = []
+    try:
+        obj = s3_client.get_object(Bucket=bucket, Key=pending_key)
+        data = json.loads(obj["Body"].read().decode("utf-8"))
+        pending = data.get("inspections", [])
+        runs_waited = data.get("runs_waited", 0) + 1
+        print(f"📋 Found {len(pending)} pending notifications ({runs_waited}/{NOTIFICATION_DELAY_RUNS} runs waited)")
+    except Exception:
+        runs_waited = 0
+        print("📋 No pending notifications found.")
+
+    # Save current detections as pending for next run
+    if new_inspections:
+        print(f"💾 Saving {len(new_inspections)} new detections as pending (will send after {NOTIFICATION_DELAY_RUNS} run(s))")
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=pending_key,
+            Body=json.dumps({"inspections": new_inspections, "runs_waited": 0}).encode("utf-8"),
+            ContentType="application/json",
+        )
+    else:
+        print("No new inspections detected this run.")
+
+    # Send pending notifications if they've waited long enough
+    if not pending or runs_waited < NOTIFICATION_DELAY_RUNS:
+        if pending:
+            print(f"⏳ Pending notifications not ready yet ({runs_waited}/{NOTIFICATION_DELAY_RUNS} runs waited). Holding.")
+            s3_client.put_object(
+                Bucket=bucket,
+                Key=pending_key,
+                Body=json.dumps({"inspections": pending, "runs_waited": runs_waited}).encode("utf-8"),
+                ContentType="application/json",
+            )
         return
 
-    print(f"📬 Sending notifications for {len(new_inspections)} new inspection(s)...")
+    print(f"📬 Sending notifications for {len(pending)} pending inspection(s)...")
+
+    # Clear pending after sending
+    s3_client.delete_object(Bucket=bucket, Key=pending_key)
 
     notify_url = os.getenv("NOTIFY_FUNCTION_URL", "https://www.spotlightpa.org/.netlify/functions/notify")
     notify_secret = os.getenv("NOTIFY_SECRET")
@@ -108,7 +155,7 @@ def detect_and_notify(df, s3_client, bucket, prefix):
     try:
         response = requests.post(
             notify_url,
-            json={"inspections": new_inspections},
+            json={"inspections": pending},
             headers={
                 "Content-Type": "application/json",
                 "x-notify-secret": notify_secret or "",

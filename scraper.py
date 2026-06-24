@@ -247,15 +247,15 @@ def main():
     from helpers.ai_summarizer import add_ai_summaries
     add_ai_summaries(destination_path)
 
-    # Re-read final file for notify and upload
+    # Upload to S3
+    upload_to_s3(destination_path)
+
+    # Re-read final file for notify
     df_final = pd.read_excel(destination_path)
 
     # Detect new inspections and trigger notifications
     from helpers.notifier import detect_and_notify
     detect_and_notify(df_final, s3_client, bucket, prefix)
-
-    # Upload to S3
-    upload_to_s3(destination_path)
 
     # Run roundup violations scraper
     from helpers.roundup_violations import main as run_roundup_violations
