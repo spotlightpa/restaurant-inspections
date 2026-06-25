@@ -67,7 +67,7 @@ def detect_and_notify(df, s3_client, bucket, prefix):
                     parsed = datetime.strptime(latest_date, "%B %d, %Y")
                 except ValueError:
                     parsed = None
-            if not parsed or parsed < datetime.now() - timedelta(days=8):
+            if not parsed or parsed < datetime.now() - timedelta(days=25):
                 current_index[facility_id] = latest_date
                 continue
             print(f"🆕 New inspection: {facility_id} ({prev_date} → {latest_date})")
