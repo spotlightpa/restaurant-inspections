@@ -6,7 +6,7 @@ on:
     branches:
       - master
   schedule:
-    - cron: '0 17 * * *'  # Runs daily at 12 p.m. EST
+    - cron: '0 15 * * *'  # Runs daily at 12 p.m. EST
 
 permissions:
   actions: write
