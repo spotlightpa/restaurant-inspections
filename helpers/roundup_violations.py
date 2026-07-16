@@ -28,7 +28,7 @@ def main():
             return
 
         # We can add or remove counties here as needed
-        counties = ["berks", "centre"]
+        counties = ["berks", "centre", "lehigh", "lancaster"]
 
         for county_search in counties:
                 file_slug = county_search
