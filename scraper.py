@@ -232,12 +232,6 @@ def main():
     fresh.to_excel(destination_path, index=False)
     print(f"Saved merged inspections to {destination_path}")
 
-    try:
-        from counties.philadelphia.pipeline import run as run_philadelphia
-        run_philadelphia()
-    except Exception as e:
-        print(f"⚠️ Philadelphia pipeline failed: {e}")
-
     # Join violation details for rows missing risk_level
     from helpers.violations_helper import join_violation_details
     join_violation_details(destination_path)
