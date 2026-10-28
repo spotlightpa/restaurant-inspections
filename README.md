@@ -54,8 +54,6 @@ The workflow makes a small keepalive commit on each scheduled run.
 
 ## Maintenance
 
-The runtime environment and package versions are pinned, so they only change through a commit.
+The runtime environment and package versions are pinned. Dependabot opens pull requests for dependency updates.
 
-Dependabot opens pull requests for dependency updates. They are not merged automatically. Merge them when you can watch the next run, and check major version upgrades against the output of a known-good run.
-
-When a run fails, check the run's logs in the Actions tab. Common causes are a change to the state's report that breaks the browser automation, an expired credential, or a run that exceeded GitHub's job time limit.
+When a run fails, check the run's logs in the Actions tab. Potential causes are a change to the state's report that breaks the browser automation, an expired credential, or a run that exceeded GitHub's job time limit.
